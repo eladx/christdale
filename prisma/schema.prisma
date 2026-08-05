@@ -1,0 +1,163 @@
+// Christdale — Prisma schema
+// Maps directly to the SRS user classes (Guest/Customer/Admin) and
+// functional requirements FR-001 through FR-015.
+//
+// Phase 3 status: this schema is live — src/lib/products.ts and
+// src/lib/coaches.ts query it directly via src/lib/prisma.ts. See
+// README.md for Supabase setup and migration/seed commands.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // pooled connection (PgBouncer, port 6543) — used at runtime
+  directUrl = env("DIRECT_URL")     // direct connection (port 5432) — used for migrations only
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum CoachingRequestStatus {
+  NEW
+  CONTACTED
+  ACCEPTED
+  DECLINED
+}
+
+// --- Users & Auth (FR-001, FR-002) ---
+
+model User {
+  id            String    @id @default(cuid())
+  fullName      String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  cart              Cart?
+  orders            Order[]
+  coachingRequests  CoachingRequest[]
+}
+
+// --- Catalog (FR-003, FR-004, FR-005, FR-012, FR-013) ---
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  slug     String    @unique
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String
+  price       Decimal  @db.Decimal(10, 2)
+  imageUrl    String   // Cloudinary URL per SRS constraint — primary/first image
+  images      String[] @default([]) // additional gallery images, in display order
+  stockCount  Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+}
+
+// --- Cart (FR-006) ---
+
+model Cart {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items CartItem[]
+  updatedAt DateTime @updatedAt
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+
+  @@unique([cartId, productId])
+}
+
+// --- Checkout & Orders (FR-007, FR-008, FR-009, FR-014) ---
+
+model Order {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
+  status       OrderStatus @default(PENDING)
+  totalAmount  Decimal     @db.Decimal(10, 2)
+  paymentRef   String?     // reference/id from payment gateway
+  shippingInfo Json        // name, address, phone, etc.
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  items OrderItem[]
+
+  @@index([userId])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(10, 2) // snapshot at time of purchase
+}
+
+// --- Coaching (FR-010, FR-011, FR-015) ---
+
+model Coach {
+  id        String   @id @default(cuid())
+  name      String
+  specialty String
+  bio       String
+  imageUrl  String
+  isActive  Boolean  @default(true)
+
+  requests CoachingRequest[]
+}
+
+model CoachingRequest {
+  id        String                 @id @default(cuid())
+  userId    String?
+  user      User?                  @relation(fields: [userId], references: [id])
+  coachId   String
+  coach     Coach                  @relation(fields: [coachId], references: [id])
+  name      String
+  email     String
+  message   String
+  status    CoachingRequestStatus  @default(NEW)
+  createdAt DateTime               @default(now())
+
+  @@index([coachId])
+}
