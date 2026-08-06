@@ -9,7 +9,7 @@ export default function CoachCard({ coach }: { coach: Coach }) {
           src={coach.image}
           alt={coach.name}
           fill
-          className="object-cover"
+          className="object-contain"
           sizes="(max-width: 768px) 100vw, 50vw"
         />
       </div>
