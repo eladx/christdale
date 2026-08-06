@@ -15,8 +15,9 @@ const VALID_STATUSES = [
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const user = await getUserFromRequest(request);
   if (!isAdminEmail(user?.email)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -28,7 +29,7 @@ export async function PATCH(
   }
 
   await prisma.order.update({
-    where: { id: params.id },
+    where: { id },
     data: { status },
   });
 
