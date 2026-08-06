@@ -19,13 +19,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { paymentMethod, shippingInfo } = await request.json();
+  const { paymentMethod, shippingInfo, productIds } = await request.json();
   const paymongoMethod = PAYMENT_METHOD_MAP[paymentMethod];
   if (!paymongoMethod) {
     return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
   }
   if (!shippingInfo?.fullName || !shippingInfo?.address || !shippingInfo?.phone) {
     return NextResponse.json({ error: "Shipping details are required" }, { status: 400 });
+  }
+  if (!Array.isArray(productIds) || productIds.length === 0) {
+    return NextResponse.json({ error: "Select at least one item to check out" }, { status: 400 });
   }
 
   const cart = await prisma.cart.findUnique({
@@ -37,7 +40,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
   }
 
-  const totalAmount = cart.items.reduce(
+  // Only the items the customer actually checked get ordered — anything
+  // left unselected stays in the cart untouched.
+  const selectedIds = new Set(productIds);
+  const cartItems = cart.items.filter((i) => selectedIds.has(i.productId));
+
+  if (cartItems.length === 0) {
+    return NextResponse.json({ error: "Selected items are no longer in your cart" }, { status: 400 });
+  }
+
+  const totalAmount = cartItems.reduce(
     (sum, i) => sum + Number(i.product.price) * i.quantity,
     0
   );
@@ -51,7 +63,7 @@ export async function POST(request: Request) {
       totalAmount,
       shippingInfo,
       items: {
-        create: cart.items.map((i) => ({
+        create: cartItems.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
           unitPrice: i.product.price,
@@ -85,7 +97,7 @@ export async function POST(request: Request) {
           show_description: true,
           show_line_items: true,
           description: `Christdale order ${order.id}`,
-          line_items: cart.items.map((i) => ({
+          line_items: cartItems.map((i) => ({
             currency: "PHP",
             amount: Math.round(Number(i.product.price) * 100), // centavos
             name: i.product.name,

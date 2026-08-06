@@ -10,7 +10,16 @@ import { supabase } from "@/lib/supabase/client";
 const PAYMENT_METHODS = ["GCash", "Maya", "Maribank"] as const;
 
 export default function CartPage() {
-  const { items, removeItem, total } = useCart();
+  const {
+    items,
+    removeItem,
+    selected,
+    toggleSelect,
+    selectAll,
+    deselectAll,
+    selectedItems,
+    selectedTotal,
+  } = useCart();
   const { user, openAuthModal } = useAuth();
   const [payment, setPayment] =
     useState<(typeof PAYMENT_METHODS)[number]>("GCash");
@@ -47,6 +56,10 @@ export default function CartPage() {
 
   async function handleCheckout() {
     setError("");
+    if (selectedItems.length === 0) {
+      setError("Select at least one item to check out.");
+      return;
+    }
     if (!fullName || !address || !phone) {
       setError("Fill in your shipping details before checking out.");
       return;
@@ -65,6 +78,7 @@ export default function CartPage() {
         body: JSON.stringify({
           paymentMethod: payment,
           shippingInfo: { fullName, address, phone },
+          productIds: selectedItems.map((i) => i.productId),
         }),
       });
       const result = await res.json();
@@ -103,12 +117,34 @@ export default function CartPage() {
         </div>
       ) : (
         <div className="mt-10">
-          <div className="divide-y divide-line border border-line bg-surface">
+          <div className="flex items-center justify-between px-1">
+            <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-wide text-muted">
+              <input
+                type="checkbox"
+                checked={selected.size === items.length}
+                onChange={(e) => (e.target.checked ? selectAll() : deselectAll())}
+                className="h-4 w-4 accent-accent"
+              />
+              Select all
+            </label>
+            <p className="font-mono text-xs text-muted">
+              {selectedItems.length} of {items.length} selected
+            </p>
+          </div>
+
+          <div className="mt-2 divide-y divide-line border border-line bg-surface">
             {items.map((item) => (
               <div
                 key={item.productId}
                 className="flex items-center gap-4 p-4"
               >
+                <input
+                  type="checkbox"
+                  checked={selected.has(item.productId)}
+                  onChange={() => toggleSelect(item.productId)}
+                  className="h-4 w-4 shrink-0 accent-accent"
+                  aria-label={`Select ${item.name} for checkout`}
+                />
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden bg-surface2">
                   <Image
                     src={item.image}
@@ -198,10 +234,10 @@ export default function CartPage() {
 
           <div className="mt-6 flex items-center justify-between">
             <p className="font-mono text-sm uppercase tracking-wide text-muted">
-              Total
+              Total ({selectedItems.length} item{selectedItems.length === 1 ? "" : "s"})
             </p>
             <p className="font-display text-2xl text-ink">
-              ₱{total.toLocaleString()}
+              ₱{selectedTotal.toLocaleString()}
             </p>
           </div>
 
@@ -209,10 +245,14 @@ export default function CartPage() {
 
           <button
             onClick={handleCheckout}
-            disabled={checkingOut}
+            disabled={checkingOut || selectedItems.length === 0}
             className="mt-6 w-full bg-accent py-3 font-mono text-sm uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
           >
-            {checkingOut ? "Redirecting…" : "Checkout"}
+            {checkingOut
+              ? "Redirecting…"
+              : selectedItems.length === 0
+              ? "Select items to check out"
+              : `Checkout (${selectedItems.length})`}
           </button>
           <p className="mt-3 text-center text-xs text-muted">
             Test mode — no real money is charged.

@@ -10,7 +10,10 @@ export async function GET(request: Request) {
   const orderId = searchParams.get("order");
   if (!orderId) return NextResponse.json({ error: "Missing order id" }, { status: 400 });
 
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  });
   if (!order || order.userId !== user.id) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
@@ -33,8 +36,15 @@ export async function GET(request: Request) {
   if (paymentIntentStatus === "succeeded") {
     await prisma.order.update({ where: { id: order.id }, data: { status: "PAID" } });
 
+    // Only remove the items that were part of THIS order — anything the
+    // customer left unchecked at checkout should still be in their cart.
     const cart = await prisma.cart.findUnique({ where: { userId: user.id } });
-    if (cart) await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+    if (cart) {
+      const orderedProductIds = order.items.map((i) => i.productId);
+      await prisma.cartItem.deleteMany({
+        where: { cartId: cart.id, productId: { in: orderedProductIds } },
+      });
+    }
 
     return NextResponse.json({ status: "PAID" });
   }
