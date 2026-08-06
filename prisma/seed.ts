@@ -102,7 +102,7 @@ const coaches = [
     specialty: "Calisthenics Fundamentals & Skill Progressions",
     bio: "Coaches beginners through their first pull-up and intermediate athletes toward muscle-ups, handstands, and levers. Programming built around consistency over intensity.",
     imageUrl:
-      "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=800",
+      "https://res.cloudinary.com/kx1msgnu/image/upload/v1785915517/dale_mppajg.png",
   },
   {
     name: "Coach Placeholder",

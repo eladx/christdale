@@ -34,7 +34,7 @@ function CartIcon() {
 
 export default function Nav() {
   const [open, setOpen] = useState(false);
-  const { user, openAuthModal, logout } = useAuth();
+  const { user, isAdmin, openAuthModal, logout } = useAuth();
   const { count } = useCart();
 
   return (
@@ -75,7 +75,17 @@ export default function Nav() {
                 )}
               </Link>
               <div className="flex items-center gap-4">
-                <span className="text-accentSoft">Hi, {user.name}</span>
+                <Link href="/orders" className="text-accentSoft hover:text-accent">
+                  Hi, {user.name}
+                </Link>
+                <Link href="/settings" className="hover:text-accent">
+                  Settings
+                </Link>
+                {isAdmin && (
+                  <Link href="/admin" className="hover:text-accent">
+                    Admin
+                  </Link>
+                )}
                 <button onClick={logout} className="hover:text-accent">
                   Log Out
                 </button>
@@ -132,6 +142,29 @@ export default function Nav() {
                 <CartIcon />
                 Cart{count > 0 ? ` (${count})` : ""}
               </Link>
+              <Link
+                href="/orders"
+                className="py-2 transition-colors hover:text-accent"
+                onClick={() => setOpen(false)}
+              >
+                My Purchases ({user.name})
+              </Link>
+              <Link
+                href="/settings"
+                className="py-2 transition-colors hover:text-accent"
+                onClick={() => setOpen(false)}
+              >
+                Settings
+              </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="py-2 transition-colors hover:text-accent"
+                  onClick={() => setOpen(false)}
+                >
+                  Admin
+                </Link>
+              )}
               <button
                 onClick={() => {
                   logout();
@@ -139,7 +172,7 @@ export default function Nav() {
                 }}
                 className="py-2 text-left hover:text-accent"
               >
-                Log Out ({user.name})
+                Log Out
               </button>
             </>
           ) : (

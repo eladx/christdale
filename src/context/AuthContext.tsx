@@ -18,12 +18,11 @@ type PendingAction = (() => void) | null;
 
 type AuthContextValue = {
   user: User | null;
+  isAdmin: boolean;
   isModalOpen: boolean;
   modalMode: "login" | "signup";
   openAuthModal: (mode?: "login" | "signup") => void;
   closeAuthModal: () => void;
-  // Runs `action` immediately if logged in, otherwise opens the auth
-  // modal and stashes `action` to run right after a successful login/signup.
   requireAuth: (action: () => void) => void;
   login: (email: string, password: string) => Promise<void>;
   signup: (
@@ -36,14 +35,25 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function checkIsAdmin(accessToken: string) {
+  try {
+    const res = await fetch("/api/admin/check", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await res.json();
+    return Boolean(data.isAdmin);
+  } catch {
+    return false;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"login" | "signup">("login");
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
-  // Restore session on mount, then stay in sync with Supabase's own
-  // auth state (handles token refresh, logout in another tab, etc.).
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
@@ -51,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: session.user.user_metadata?.full_name ?? session.user.email!.split("@")[0],
           email: session.user.email!,
         });
+        checkIsAdmin(session.access_token).then(setIsAdmin);
       }
     });
 
@@ -63,8 +74,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               session.user.email!.split("@")[0],
             email: session.user.email!,
           });
+          checkIsAdmin(session.access_token).then(setIsAdmin);
         } else {
           setUser(null);
+          setIsAdmin(false);
         }
       }
     );
@@ -117,11 +130,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (error) throw error;
 
-      // If email confirmation is enabled in Supabase (Auth > Providers >
-      // Email), signUp succeeds but returns no session until the user
-      // clicks the confirmation link — don't close the modal or run the
-      // pending action in that case, or it'll look like login worked
-      // when the user actually isn't authenticated yet.
       if (!data.session) {
         return { needsConfirmation: true };
       }
@@ -142,6 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        isAdmin,
         isModalOpen,
         modalMode,
         openAuthModal,

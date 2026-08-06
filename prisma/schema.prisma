@@ -28,6 +28,7 @@ enum OrderStatus {
   SHIPPED
   DELIVERED
   CANCELLED
+  REFUNDED
 }
 
 enum CoachingRequestStatus {
@@ -48,8 +49,6 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  cart              Cart?
-  orders            Order[]
   coachingRequests  CoachingRequest[]
 }
 
@@ -87,12 +86,10 @@ model Product {
 // --- Cart (FR-006) ---
 
 model Cart {
-  id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  items CartItem[]
-  updatedAt DateTime @updatedAt
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
 }
 
 model CartItem {
@@ -111,11 +108,10 @@ model CartItem {
 model Order {
   id           String      @id @default(cuid())
   userId       String
-  user         User        @relation(fields: [userId], references: [id])
   status       OrderStatus @default(PENDING)
   totalAmount  Decimal     @db.Decimal(10, 2)
-  paymentRef   String?     // reference/id from payment gateway
-  shippingInfo Json        // name, address, phone, etc.
+  paymentRef   String?
+  shippingInfo Json
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -161,3 +157,5 @@ model CoachingRequest {
 
   @@index([coachId])
 }
+
+

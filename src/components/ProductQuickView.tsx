@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuickView } from "@/context/QuickViewContext";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -12,6 +13,7 @@ export default function ProductQuickView() {
   const { product, isOpen, closeQuickView } = useQuickView();
   const { addItem } = useCart();
   const { requireAuth } = useAuth();
+  const router = useRouter();
 
   const [imageIndex, setImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -40,6 +42,14 @@ export default function ProductQuickView() {
       addItem(product!, quantity);
       setAdded(true);
       setTimeout(() => setAdded(false), 1500);
+    });
+  }
+
+  function handleBuyNow() {
+    requireAuth(() => {
+      addItem(product!, quantity);
+      closeQuickView();
+      router.push("/cart");
     });
   }
 
@@ -199,17 +209,26 @@ export default function ProductQuickView() {
               </div>
             </div>
 
-            <button
-              onClick={handleAddToCart}
-              disabled={!product.inStock}
-              className="mt-8 w-full bg-accent py-3 font-mono text-sm uppercase tracking-wide text-bg hover:opacity-90 disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
-            >
-              {!product.inStock
-                ? "Out of Stock"
-                : added
-                ? "Added to Cart ✓"
-                : "Add to Cart"}
-            </button>
+            <div className="mt-8 flex gap-3">
+              <button
+                onClick={handleAddToCart}
+                disabled={!product.inStock}
+                className="flex-1 border border-line py-3 font-mono text-sm uppercase tracking-wide text-ink hover:border-accentSoft disabled:cursor-not-allowed disabled:border-line disabled:text-muted"
+              >
+                {!product.inStock
+                  ? "Out of Stock"
+                  : added
+                  ? "Added ✓"
+                  : "Add to Cart"}
+              </button>
+              <button
+                onClick={handleBuyNow}
+                disabled={!product.inStock}
+                className="flex-1 bg-accent py-3 font-mono text-sm uppercase tracking-wide text-bg hover:opacity-90 disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
+              >
+                Buy Now
+              </button>
+            </div>
             <p className="mt-3 text-center text-xs text-muted">
               Payment method is noted for checkout — actual payment
               processing isn't wired up yet.

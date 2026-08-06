@@ -4,6 +4,9 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { Product } from "@/lib/products";
 import { useQuickView } from "@/context/QuickViewContext";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 
 export default function ProductCard({ product }: { product: Product }) {
   const { openQuickView } = useQuickView();
@@ -24,6 +27,26 @@ export default function ProductCard({ product }: { product: Product }) {
   function handleMouseLeave() {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setHoverIndex(0);
+  }
+
+  const { requireAuth } = useAuth();
+  const { addItem } = useCart();
+  const router = useRouter();
+  const [added, setAdded] = useState(false);
+
+  function handleAddToCart() {
+    requireAuth(() => {
+      addItem(product);
+      setAdded(true);
+      setTimeout(() => setAdded(false), 1500);
+    });
+  }
+
+  function handleBuyNow() {
+    requireAuth(() => {
+      addItem(product);
+      router.push("/cart");
+    });
   }
 
   useEffect(() => {
@@ -79,13 +102,22 @@ export default function ProductCard({ product }: { product: Product }) {
           ₱{product.price.toLocaleString()}
         </p>
 
-        <button
-          onClick={() => openQuickView(product)}
-          disabled={!product.inStock}
-          className="mt-3 w-full bg-accent py-2 font-mono text-xs uppercase tracking-wide text-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
-        >
-          {!product.inStock ? "Out of Stock" : "Buy Now"}
-        </button>
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={handleAddToCart}
+            disabled={!product.inStock}
+            className="flex-1 border border-line py-2 font-mono text-xs uppercase tracking-wide text-ink transition-colors hover:border-accentSoft disabled:cursor-not-allowed disabled:border-line disabled:text-muted"
+          >
+            {!product.inStock ? "Out of Stock" : added ? "Added ✓" : "Add to Cart"}
+          </button>
+          <button
+            onClick={handleBuyNow}
+            disabled={!product.inStock}
+            className="flex-1 bg-accent py-2 font-mono text-xs uppercase tracking-wide text-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-line disabled:text-muted"
+          >
+            Buy Now
+          </button>
+        </div>
       </div>
     </div>
   );

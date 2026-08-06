@@ -1,14 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase/client";
+
+const PAYMENT_METHODS = ["GCash", "Maya", "Maribank"] as const;
 
 export default function CartPage() {
   const { items, removeItem, total } = useCart();
   const { user, openAuthModal } = useAuth();
+  const [payment, setPayment] =
+    useState<(typeof PAYMENT_METHODS)[number]>("GCash");
+  const [fullName, setFullName] = useState("");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [error, setError] = useState("");
 
+  // The nav already hides the cart link when logged out, but someone
+  // could still hit /cart directly by URL — guard the page itself too.
   if (!user) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16 text-center sm:px-8">
@@ -30,6 +43,43 @@ export default function CartPage() {
         </button>
       </div>
     );
+  }
+
+  async function handleCheckout() {
+    setError("");
+    if (!fullName || !address || !phone) {
+      setError("Fill in your shipping details before checking out.");
+      return;
+    }
+    setCheckingOut(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token ?? "";
+
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentMethod: payment,
+          shippingInfo: { fullName, address, phone },
+        }),
+      });
+      const result = await res.json();
+
+      if (!res.ok) {
+        setError(result.error ?? "Checkout failed.");
+        setCheckingOut(false);
+        return;
+      }
+
+      window.location.href = result.checkoutUrl;
+    } catch {
+      setError("Something went wrong. Try again.");
+      setCheckingOut(false);
+    }
   }
 
   return (
@@ -86,6 +136,66 @@ export default function CartPage() {
             ))}
           </div>
 
+          <div className="mt-6 space-y-4">
+            <p className="font-mono text-xs uppercase tracking-wide text-muted">
+              Shipping Details
+            </p>
+            <div>
+              <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+                Address
+              </label>
+              <textarea
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                rows={2}
+                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+              Mode of Payment
+            </label>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {PAYMENT_METHODS.map((method) => (
+                <button
+                  key={method}
+                  onClick={() => setPayment(method)}
+                  className={`border px-4 py-2 font-mono text-xs uppercase tracking-wide ${
+                    payment === method
+                      ? "border-accent text-accent"
+                      : "border-line text-muted hover:text-ink"
+                  }`}
+                >
+                  {method}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mt-6 flex items-center justify-between">
             <p className="font-mono text-sm uppercase tracking-wide text-muted">
               Total
@@ -95,13 +205,18 @@ export default function CartPage() {
             </p>
           </div>
 
+          {error && <p className="mt-3 text-sm text-accent">{error}</p>}
+
           <button
-            disabled
-            title="Checkout ships in Phase 3 — payment gateway integration"
-            className="mt-6 w-full cursor-not-allowed bg-line py-3 font-mono text-sm uppercase tracking-wide text-muted"
+            onClick={handleCheckout}
+            disabled={checkingOut}
+            className="mt-6 w-full bg-accent py-3 font-mono text-sm uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
           >
-            Checkout — Coming Soon
+            {checkingOut ? "Redirecting…" : "Checkout"}
           </button>
+          <p className="mt-3 text-center text-xs text-muted">
+            Test mode — no real money is charged.
+          </p>
         </div>
       )}
     </div>
