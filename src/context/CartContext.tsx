@@ -11,6 +11,7 @@ type CartContextValue = {
   items: CartItem[];
   addItem: (product: Product, quantity?: number) => void;
   removeItem: (productId: string) => void;
+  removeItems: (productIds: string[]) => void;
   total: number;
   count: number;
   selected: Set<string>;
@@ -62,6 +63,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const removeItems = useCallback(async (productIds: string[]) => {
+    if (productIds.length === 0) return;
+    const headers = await authHeader();
+    await fetch("/api/cart/items", {
+      method: "DELETE",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ productIds }),
+    });
+    await refresh();
+  }, [refresh]);
+
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
@@ -95,6 +107,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         items,
         addItem,
         removeItem,
+        removeItems,
         total,
         count,
         selected,

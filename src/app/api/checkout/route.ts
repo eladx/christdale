@@ -49,6 +49,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Selected items are no longer in your cart" }, { status: 400 });
   }
 
+  // Stock can change between "add to cart" and "checkout" (someone else
+  // buys it, or an admin adjusts it) — re-check right before charging.
+  const outOfStock = cartItems.filter((i) => i.quantity > i.product.stockCount);
+  if (outOfStock.length > 0) {
+    return NextResponse.json(
+      {
+        error: `Not enough stock for: ${outOfStock.map((i) => i.product.name).join(", ")}. Please update the quantity in your cart.`,
+      },
+      { status: 400 }
+    );
+  }
+
   const totalAmount = cartItems.reduce(
     (sum, i) => sum + Number(i.product.price) * i.quantity,
     0

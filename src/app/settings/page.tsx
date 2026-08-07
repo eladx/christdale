@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase/client";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 export default function SettingsPage() {
   const { user, openAuthModal, logout } = useAuth();
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   const [name, setName] = useState(user?.name ?? "");
   const [nameStatus, setNameStatus] = useState("");
@@ -132,10 +134,23 @@ export default function SettingsPage() {
 
       <div className="mt-6 border border-line bg-surface p-6">
         <h2 className="font-display text-xl text-ink">Account</h2>
-        <button onClick={logout} className="mt-4 border border-line px-5 py-2 font-mono text-xs uppercase tracking-wide text-ink hover:border-accentSoft hover:text-accentSoft">
+        <button onClick={() => setConfirmLogout(true)} className="mt-4 border border-line px-5 py-2 font-mono text-xs uppercase tracking-wide text-ink hover:border-accentSoft hover:text-accentSoft">
           Log Out
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirmLogout}
+        title="Log Out"
+        message="Are you sure you want to logout?"
+        confirmLabel="Log Out"
+        danger
+        onCancel={() => setConfirmLogout(false)}
+        onConfirm={() => {
+          logout();
+          setConfirmLogout(false);
+        }}
+      />
     </div>
   );
 }

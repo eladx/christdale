@@ -4,6 +4,10 @@ import { getCoaches } from "@/lib/coaches";
 import ProductCard from "@/components/ProductCard";
 import CoachCard from "@/components/CoachCard";
 
+// Same reason as /products: without this the featured products on the
+// homepage freeze at whatever they were on the last Vercel deploy.
+export const revalidate = 60;
+
 export default async function Home() {
   const [products, coaches] = await Promise.all([
     getProducts(),
