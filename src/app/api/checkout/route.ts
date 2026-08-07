@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { paymentMethod, shippingInfo } = await request.json();
+  const { paymentMethod, shippingInfo, productIds } = await request.json();
   const paymongoMethod = PAYMENT_METHOD_MAP[paymentMethod];
   if (!paymongoMethod) {
     return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
@@ -37,7 +37,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
   }
 
-  const totalAmount = cart.items.reduce(
+  // Only checkout the items the customer actually selected on the cart
+  // page. Falls back to the whole cart if productIds wasn't sent, for
+  // backward compatibility.
+  const selectedItems =
+    Array.isArray(productIds) && productIds.length > 0
+      ? cart.items.filter((i) => productIds.includes(i.productId))
+      : cart.items;
+
+  if (selectedItems.length === 0) {
+    return NextResponse.json({ error: "No items selected" }, { status: 400 });
+  }
+
+  const totalAmount = selectedItems.reduce(
     (sum, i) => sum + Number(i.product.price) * i.quantity,
     0
   );
@@ -51,7 +63,7 @@ export async function POST(request: Request) {
       totalAmount,
       shippingInfo,
       items: {
-        create: cart.items.map((i) => ({
+        create: selectedItems.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
           unitPrice: i.product.price,
@@ -85,7 +97,7 @@ export async function POST(request: Request) {
           show_description: true,
           show_line_items: true,
           description: `Christdale order ${order.id}`,
-          line_items: cart.items.map((i) => ({
+          line_items: selectedItems.map((i) => ({
             currency: "PHP",
             amount: Math.round(Number(i.product.price) * 100), // centavos
             name: i.product.name,

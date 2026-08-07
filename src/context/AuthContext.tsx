@@ -12,6 +12,9 @@ import { supabase } from "@/lib/supabase/client";
 type User = {
   name: string;
   email: string;
+  address: string;
+  phone: string;
+  phoneVerified: boolean;
 };
 
 type PendingAction = (() => void) | null;
@@ -29,7 +32,7 @@ type AuthContextValue = {
     name: string,
     email: string,
     password: string
-  ) => Promise<{ needsConfirmation: boolean }>;
+  ) => Promise<{ needsConfirmation: boolean; alreadyRegistered: boolean }>;
   logout: () => void;
 };
 
@@ -47,6 +50,18 @@ async function checkIsAdmin(accessToken: string) {
   }
 }
 
+function mapUser(supabaseUser: NonNullable<
+  Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]
+>["user"]): User {
+  return {
+    name: supabaseUser.user_metadata?.full_name ?? supabaseUser.email!.split("@")[0],
+    email: supabaseUser.email!,
+    address: supabaseUser.user_metadata?.address ?? "",
+    phone: supabaseUser.user_metadata?.phone ?? "",
+    phoneVerified: Boolean(supabaseUser.user_metadata?.phone_verified),
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -57,10 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setUser({
-          name: session.user.user_metadata?.full_name ?? session.user.email!.split("@")[0],
-          email: session.user.email!,
-        });
+        setUser(mapUser(session.user));
         checkIsAdmin(session.access_token).then(setIsAdmin);
       }
     });
@@ -68,12 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         if (session?.user) {
-          setUser({
-            name:
-              session.user.user_metadata?.full_name ??
-              session.user.email!.split("@")[0],
-            email: session.user.email!,
-          });
+          setUser(mapUser(session.user));
           checkIsAdmin(session.access_token).then(setIsAdmin);
         } else {
           setUser(null);
@@ -128,16 +135,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
         options: { data: { full_name: name } },
       });
-      if (error) throw error;
+
+      if (error) {
+        // Supabase returns a real error for this in some configs.
+        if (/already registered|already exists/i.test(error.message)) {
+          return { needsConfirmation: false, alreadyRegistered: true };
+        }
+        throw error;
+      }
+
+      // With "Confirm email" on, Supabase intentionally returns success
+      // (not an error) for an already-registered email, to avoid leaking
+      // which emails exist. The tell is an empty identities array.
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        return { needsConfirmation: false, alreadyRegistered: true };
+      }
 
       if (!data.session) {
-        return { needsConfirmation: true };
+        return { needsConfirmation: true, alreadyRegistered: false };
       }
 
       setIsModalOpen(false);
       pendingAction?.();
       setPendingAction(null);
-      return { needsConfirmation: false };
+      return { needsConfirmation: false, alreadyRegistered: false };
     },
     [pendingAction]
   );

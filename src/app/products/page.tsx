@@ -1,6 +1,8 @@
 import { getProducts, getCategories } from "@/lib/products";
 import ProductsFilter from "@/components/ProductsFilter";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProductsPage() {
   const [products, categories] = await Promise.all([
     getProducts(),

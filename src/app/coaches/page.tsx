@@ -1,6 +1,8 @@
 import { getCoaches } from "@/lib/coaches";
 import CoachesList from "@/components/CoachesList";
 
+export const dynamic = "force-dynamic";
+
 export default async function CoachesPage() {
   const coaches = await getCoaches();
 

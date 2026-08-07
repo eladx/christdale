@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
@@ -12,6 +12,7 @@ const PAYMENT_METHODS = ["GCash", "Maya", "Maribank"] as const;
 export default function CartPage() {
   const { items, removeItem, total } = useCart();
   const { user, openAuthModal } = useAuth();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [payment, setPayment] =
     useState<(typeof PAYMENT_METHODS)[number]>("GCash");
   const [fullName, setFullName] = useState("");
@@ -20,8 +21,30 @@ export default function CartPage() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState("");
 
-  // The nav already hides the cart link when logged out, but someone
-  // could still hit /cart directly by URL — guard the page itself too.
+  // Default to all items selected. New items added later also default in.
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      items.forEach((i) => {
+        if (!prev.has(i.productId)) next.add(i.productId);
+      });
+      // Drop selections for items no longer in the cart.
+      Array.from(next).forEach((id) => {
+        if (!items.find((i) => i.productId === id)) next.delete(id);
+      });
+      return next;
+    });
+  }, [items]);
+
+  // Prefill shipping details from saved profile (Settings), still editable.
+  useEffect(() => {
+    if (user) {
+      setFullName((v) => v || user.name);
+      setAddress((v) => v || user.address);
+      setPhone((v) => v || user.phone);
+    }
+  }, [user]);
+
   if (!user) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16 text-center sm:px-8">
@@ -45,8 +68,33 @@ export default function CartPage() {
     );
   }
 
+  function toggleSelected(productId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  }
+
+  function handleRemove(productId: string, name: string) {
+    if (confirm(`Remove "${name}" from your cart?`)) {
+      removeItem(productId);
+    }
+  }
+
+  const selectedItems = items.filter((i) => selected.has(i.productId));
+  const selectedTotal = selectedItems.reduce(
+    (sum, i) => sum + i.price * i.quantity,
+    0
+  );
+
   async function handleCheckout() {
     setError("");
+    if (selectedItems.length === 0) {
+      setError("Select at least one item to check out.");
+      return;
+    }
     if (!fullName || !address || !phone) {
       setError("Fill in your shipping details before checking out.");
       return;
@@ -65,6 +113,7 @@ export default function CartPage() {
         body: JSON.stringify({
           paymentMethod: payment,
           shippingInfo: { fullName, address, phone },
+          productIds: Array.from(selected),
         }),
       });
       const result = await res.json();
@@ -109,6 +158,13 @@ export default function CartPage() {
                 key={item.productId}
                 className="flex items-center gap-4 p-4"
               >
+                <input
+                  type="checkbox"
+                  checked={selected.has(item.productId)}
+                  onChange={() => toggleSelected(item.productId)}
+                  className="h-4 w-4 accent-accent"
+                  aria-label={`Select ${item.name} for checkout`}
+                />
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden bg-surface2">
                   <Image
                     src={item.image}
@@ -127,7 +183,7 @@ export default function CartPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => removeItem(item.productId)}
+                  onClick={() => handleRemove(item.productId, item.name)}
                   className="font-mono text-xs uppercase tracking-wide text-muted hover:text-accent"
                 >
                   Remove
@@ -173,6 +229,14 @@ export default function CartPage() {
                 className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
               />
             </div>
+            {(!user.address || !user.phoneVerified) && (
+              <p className="text-xs text-muted">
+                <Link href="/settings" className="text-accent hover:underline">
+                  Save your address and verify your phone in Settings
+                </Link>{" "}
+                to skip typing this every time.
+              </p>
+            )}
           </div>
 
           <div className="mt-6">
@@ -198,10 +262,10 @@ export default function CartPage() {
 
           <div className="mt-6 flex items-center justify-between">
             <p className="font-mono text-sm uppercase tracking-wide text-muted">
-              Total
+              Total ({selectedItems.length} of {items.length} selected)
             </p>
             <p className="font-display text-2xl text-ink">
-              ₱{total.toLocaleString()}
+              ₱{selectedTotal.toLocaleString()}
             </p>
           </div>
 
@@ -209,10 +273,12 @@ export default function CartPage() {
 
           <button
             onClick={handleCheckout}
-            disabled={checkingOut}
+            disabled={checkingOut || selectedItems.length === 0}
             className="mt-6 w-full bg-accent py-3 font-mono text-sm uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
           >
-            {checkingOut ? "Redirecting…" : "Checkout"}
+            {checkingOut
+              ? "Redirecting…"
+              : `Checkout (${selectedItems.length})`}
           </button>
           <p className="mt-3 text-center text-xs text-muted">
             Test mode — no real money is charged.

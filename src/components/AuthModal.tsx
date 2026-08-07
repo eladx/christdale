@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function AuthModal() {
   const { isModalOpen, modalMode, closeAuthModal, login, signup } = useAuth();
@@ -61,8 +62,18 @@ export default function AuthModal() {
       if (mode === "login") {
         await login(email, password);
       } else {
-        const { needsConfirmation } = await signup(name, email, password);
-        if (needsConfirmation) setCheckEmail(true);
+        const { needsConfirmation, alreadyRegistered } = await signup(
+          name,
+          email,
+          password
+        );
+        if (alreadyRegistered) {
+          setError("This email is already registered. Try logging in instead.");
+          switchMode("login");
+          setEmail(email);
+        } else if (needsConfirmation) {
+          setCheckEmail(true);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -172,12 +183,9 @@ export default function AuthModal() {
                 <label className="block font-mono text-xs uppercase tracking-wide text-muted">
                   Password
                 </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-                />
+                <div className="mt-2">
+                  <PasswordInput value={password} onChange={setPassword} />
+                </div>
               </div>
 
               {error && <p className="text-sm text-accent">{error}</p>}

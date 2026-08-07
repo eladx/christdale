@@ -37,6 +37,12 @@ export default function Nav() {
   const { user, isAdmin, openAuthModal, logout } = useAuth();
   const { count } = useCart();
 
+  function handleLogout() {
+    if (confirm("Log out of your account?")) {
+      logout();
+    }
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-bg/90 backdrop-blur">
       <div className="wrap flex items-center justify-between py-4 md:grid md:grid-cols-[auto_1fr_auto] md:gap-4">
@@ -86,7 +92,7 @@ export default function Nav() {
                     Admin
                   </Link>
                 )}
-                <button onClick={logout} className="hover:text-accent">
+                <button onClick={handleLogout} className="hover:text-accent">
                   Log Out
                 </button>
               </div>
@@ -167,7 +173,7 @@ export default function Nav() {
               )}
               <button
                 onClick={() => {
-                  logout();
+                  handleLogout();
                   setOpen(false);
                 }}
                 className="py-2 text-left hover:text-accent"
