@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const links = [
   { href: "/", label: "Home" },
@@ -34,14 +35,9 @@ function CartIcon() {
 
 export default function Nav() {
   const [open, setOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const { user, isAdmin, openAuthModal, logout } = useAuth();
   const { count } = useCart();
-
-  function handleLogout() {
-    if (confirm("Log out of your account?")) {
-      logout();
-    }
-  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-bg/90 backdrop-blur">
@@ -92,7 +88,7 @@ export default function Nav() {
                     Admin
                   </Link>
                 )}
-                <button onClick={handleLogout} className="hover:text-accent">
+                <button onClick={() => setConfirmLogout(true)} className="hover:text-accent">
                   Log Out
                 </button>
               </div>
@@ -172,10 +168,7 @@ export default function Nav() {
                 </Link>
               )}
               <button
-                onClick={() => {
-                  handleLogout();
-                  setOpen(false);
-                }}
+                onClick={() => setConfirmLogout(true)}
                 className="py-2 text-left hover:text-accent"
               >
                 Log Out
@@ -205,6 +198,20 @@ export default function Nav() {
           )}
         </nav>
       )}
+
+      <ConfirmDialog
+        open={confirmLogout}
+        title="Log Out"
+        message="Are you sure you want to logout?"
+        confirmLabel="Log Out"
+        danger
+        onCancel={() => setConfirmLogout(false)}
+        onConfirm={() => {
+          logout();
+          setConfirmLogout(false);
+          setOpen(false);
+        }}
+      />
     </header>
   );
 }

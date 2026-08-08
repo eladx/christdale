@@ -4,10 +4,9 @@ import { getCoaches } from "@/lib/coaches";
 import ProductCard from "@/components/ProductCard";
 import CoachCard from "@/components/CoachCard";
 
-// Without this, Vercel statically caches this page at build time —
-// new products/coaches added via admin wouldn't show on the live site
-// until the next deploy, even though they're already in the database.
-export const dynamic = "force-dynamic";
+// Same reason as /products: without this the featured products on the
+// homepage freeze at whatever they were on the last Vercel deploy.
+export const revalidate = 60;
 
 export default async function Home() {
   const [products, coaches] = await Promise.all([

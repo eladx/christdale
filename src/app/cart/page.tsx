@@ -1,18 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase/client";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const PAYMENT_METHODS = ["GCash", "Maya", "Maribank"] as const;
 
 export default function CartPage() {
-  const { items, removeItem, total } = useCart();
+  const {
+    items,
+    removeItem,
+    removeItems,
+    selected,
+    toggleSelect,
+    selectAll,
+    deselectAll,
+    selectedItems,
+    selectedTotal,
+  } = useCart();
   const { user, openAuthModal } = useAuth();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [payment, setPayment] =
     useState<(typeof PAYMENT_METHODS)[number]>("GCash");
   const [fullName, setFullName] = useState("");
@@ -21,30 +31,15 @@ export default function CartPage() {
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState("");
 
-  // Default to all items selected. New items added later also default in.
-  useEffect(() => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      items.forEach((i) => {
-        if (!prev.has(i.productId)) next.add(i.productId);
-      });
-      // Drop selections for items no longer in the cart.
-      Array.from(next).forEach((id) => {
-        if (!items.find((i) => i.productId === id)) next.delete(id);
-      });
-      return next;
-    });
-  }, [items]);
+  // Which single item (by productId) is pending a Remove confirmation,
+  // vs. the bulk "Delete Selected" confirmation — kept separate so the
+  // dialog can show the right message for each case.
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  // Prefill shipping details from saved profile (Settings), still editable.
-  useEffect(() => {
-    if (user) {
-      setFullName((v) => v || user.name);
-      setAddress((v) => v || user.address);
-      setPhone((v) => v || user.phone);
-    }
-  }, [user]);
-
+  // The nav already hides the cart link when logged out, but someone
+  // could still hit /cart directly by URL — guard the page itself too.
   if (!user) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16 text-center sm:px-8">
@@ -67,27 +62,6 @@ export default function CartPage() {
       </div>
     );
   }
-
-  function toggleSelected(productId: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) next.delete(productId);
-      else next.add(productId);
-      return next;
-    });
-  }
-
-  function handleRemove(productId: string, name: string) {
-    if (confirm(`Remove "${name}" from your cart?`)) {
-      removeItem(productId);
-    }
-  }
-
-  const selectedItems = items.filter((i) => selected.has(i.productId));
-  const selectedTotal = selectedItems.reduce(
-    (sum, i) => sum + i.price * i.quantity,
-    0
-  );
 
   async function handleCheckout() {
     setError("");
@@ -113,7 +87,7 @@ export default function CartPage() {
         body: JSON.stringify({
           paymentMethod: payment,
           shippingInfo: { fullName, address, phone },
-          productIds: Array.from(selected),
+          productIds: selectedItems.map((i) => i.productId),
         }),
       });
       const result = await res.json();
@@ -152,7 +126,31 @@ export default function CartPage() {
         </div>
       ) : (
         <div className="mt-10">
-          <div className="divide-y divide-line border border-line bg-surface">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+            <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-wide text-muted">
+              <input
+                type="checkbox"
+                checked={selected.size === items.length}
+                onChange={(e) => (e.target.checked ? selectAll() : deselectAll())}
+                className="h-4 w-4 accent-accent"
+              />
+              Select all
+            </label>
+            <div className="flex items-center gap-4">
+              <p className="font-mono text-xs text-muted">
+                {selectedItems.length} of {items.length} selected
+              </p>
+              <button
+                onClick={() => setConfirmBulkDelete(true)}
+                disabled={selectedItems.length === 0}
+                className="font-mono text-xs uppercase tracking-wide text-muted hover:text-accent disabled:opacity-40 disabled:hover:text-muted"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-2 divide-y divide-line border border-line bg-surface">
             {items.map((item) => (
               <div
                 key={item.productId}
@@ -161,8 +159,8 @@ export default function CartPage() {
                 <input
                   type="checkbox"
                   checked={selected.has(item.productId)}
-                  onChange={() => toggleSelected(item.productId)}
-                  className="h-4 w-4 accent-accent"
+                  onChange={() => toggleSelect(item.productId)}
+                  className="h-4 w-4 shrink-0 accent-accent"
                   aria-label={`Select ${item.name} for checkout`}
                 />
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden bg-surface2">
@@ -183,7 +181,7 @@ export default function CartPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => handleRemove(item.productId, item.name)}
+                  onClick={() => setConfirmRemoveId(item.productId)}
                   className="font-mono text-xs uppercase tracking-wide text-muted hover:text-accent"
                 >
                   Remove
@@ -229,14 +227,6 @@ export default function CartPage() {
                 className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
               />
             </div>
-            {(!user.address || !user.phoneVerified) && (
-              <p className="text-xs text-muted">
-                <Link href="/settings" className="text-accent hover:underline">
-                  Save your address and verify your phone in Settings
-                </Link>{" "}
-                to skip typing this every time.
-              </p>
-            )}
           </div>
 
           <div className="mt-6">
@@ -262,7 +252,7 @@ export default function CartPage() {
 
           <div className="mt-6 flex items-center justify-between">
             <p className="font-mono text-sm uppercase tracking-wide text-muted">
-              Total ({selectedItems.length} of {items.length} selected)
+              Total ({selectedItems.length} item{selectedItems.length === 1 ? "" : "s"})
             </p>
             <p className="font-display text-2xl text-ink">
               ₱{selectedTotal.toLocaleString()}
@@ -278,6 +268,8 @@ export default function CartPage() {
           >
             {checkingOut
               ? "Redirecting…"
+              : selectedItems.length === 0
+              ? "Select items to check out"
               : `Checkout (${selectedItems.length})`}
           </button>
           <p className="mt-3 text-center text-xs text-muted">
@@ -285,6 +277,43 @@ export default function CartPage() {
           </p>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmRemoveId !== null}
+        title="Remove Item"
+        message={
+          confirmRemoveId
+            ? `Are you sure you want to remove "${items.find((i) => i.productId === confirmRemoveId)?.name ?? "this item"}"?`
+            : ""
+        }
+        confirmLabel="Remove"
+        danger
+        busy={deleting}
+        onCancel={() => setConfirmRemoveId(null)}
+        onConfirm={async () => {
+          if (!confirmRemoveId) return;
+          setDeleting(true);
+          await removeItem(confirmRemoveId);
+          setDeleting(false);
+          setConfirmRemoveId(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        title="Delete Items"
+        message={`Are you sure you want to delete ${selectedItems.length} selected item${selectedItems.length === 1 ? "" : "s"}?`}
+        confirmLabel="Delete"
+        danger
+        busy={deleting}
+        onCancel={() => setConfirmBulkDelete(false)}
+        onConfirm={async () => {
+          setDeleting(true);
+          await removeItems(selectedItems.map((i) => i.productId));
+          setDeleting(false);
+          setConfirmBulkDelete(false);
+        }}
+      />
     </div>
   );
 }
