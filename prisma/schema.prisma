@@ -157,3 +157,12 @@ model CoachingRequest {
 
   @@index([coachId])
 }
+
+model PhoneVerification {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  phone     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
