@@ -328,3 +328,44 @@ export default function SettingsPage() {
           <div>
             <label className="block font-mono text-xs uppercase tracking-wide text-muted">
               Confirm New Password
+            </label>
+            <div className="mt-2">
+              <PasswordInput
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+              />
+            </div>
+          </div>
+
+          {passwordError && (
+            <p className="text-sm text-accent">{passwordError}</p>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={savingPassword}
+              className="bg-accent px-5 py-2 font-mono text-xs uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
+            >
+              {savingPassword ? "Saving…" : "Update Password"}
+            </button>
+            {passwordStatus && (
+              <span className="text-xs text-accentSoft">{passwordStatus}</span>
+            )}
+          </div>
+        </form>
+      </div>
+
+      {/* Account actions */}
+      <div className="mt-6 border border-line bg-surface p-6">
+        <h2 className="font-display text-xl text-ink">Account</h2>
+        <button
+          onClick={handleLogout}
+          className="mt-4 border border-line px-5 py-2 font-mono text-xs uppercase tracking-wide text-ink hover:border-accentSoft hover:text-accentSoft"
+        >
+          Log Out
+        </button>
+      </div>
+    </div>
+  );
+}
