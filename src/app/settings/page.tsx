@@ -3,15 +3,25 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase/client";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function SettingsPage() {
   const { user, openAuthModal, logout } = useAuth();
-  const [confirmLogout, setConfirmLogout] = useState(false);
 
   const [name, setName] = useState(user?.name ?? "");
   const [nameStatus, setNameStatus] = useState("");
   const [savingName, setSavingName] = useState(false);
+
+  const [address, setAddress] = useState(user?.address ?? "");
+  const [addressStatus, setAddressStatus] = useState("");
+  const [savingAddress, setSavingAddress] = useState(false);
+
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneBusy, setPhoneBusy] = useState(false);
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -22,22 +32,93 @@ export default function SettingsPage() {
   if (!user) {
     return (
       <div className="mx-auto max-w-lg px-6 py-16 text-center sm:px-8">
-        <p className="font-mono text-xs uppercase tracking-widest2 text-accentSoft">Settings</p>
-        <h1 className="mt-3 font-display text-4xl text-ink md:text-5xl">Log In to Manage Your Account</h1>
-        <button onClick={() => openAuthModal("login")} className="mt-6 bg-accent px-6 py-3 font-mono text-sm uppercase tracking-wide text-bg hover:opacity-90">
+        <p className="font-mono text-xs uppercase tracking-widest2 text-accentSoft">
+          Settings
+        </p>
+        <h1 className="mt-3 font-display text-4xl text-ink md:text-5xl">
+          Log In to Manage Your Account
+        </h1>
+        <button
+          onClick={() => openAuthModal("login")}
+          className="mt-6 bg-accent px-6 py-3 font-mono text-sm uppercase tracking-wide text-bg hover:opacity-90"
+        >
           Log In / Sign Up
         </button>
       </div>
     );
   }
 
+  async function authHeader() {
+    const { data } = await supabase.auth.getSession();
+    return { Authorization: `Bearer ${data.session?.access_token ?? ""}` };
+  }
+
   async function handleSaveName(e: React.FormEvent) {
     e.preventDefault();
     setNameStatus("");
     setSavingName(true);
-    const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
+    const { error } = await supabase.auth.updateUser({
+      data: { full_name: name },
+    });
     setSavingName(false);
     setNameStatus(error ? "Something went wrong." : "Saved.");
+  }
+
+  async function handleSaveAddress(e: React.FormEvent) {
+    e.preventDefault();
+    setAddressStatus("");
+    setSavingAddress(true);
+    const { error } = await supabase.auth.updateUser({
+      data: { address },
+    });
+    setSavingAddress(false);
+    setAddressStatus(error ? "Something went wrong." : "Saved.");
+  }
+
+  async function handleSendCode() {
+    setPhoneError("");
+    if (!phone || phone.length < 10) {
+      setPhoneError("Enter a valid phone number.");
+      return;
+    }
+    setPhoneBusy(true);
+    const headers = await authHeader();
+    const res = await fetch("/api/sms/send-otp", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+    });
+    setPhoneBusy(false);
+    if (!res.ok) {
+      setPhoneError("Couldn't send code. Try again.");
+      return;
+    }
+    setOtpSent(true);
+  }
+
+  async function handleVerifyCode() {
+    setPhoneError("");
+    setPhoneBusy(true);
+    const headers = await authHeader();
+    const res = await fetch("/api/sms/verify-otp", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ code: otpCode }),
+    });
+    const result = await res.json();
+    setPhoneBusy(false);
+
+    if (!res.ok) {
+      setPhoneError(result.error ?? "Invalid code.");
+      return;
+    }
+
+    await supabase.auth.updateUser({
+      data: { phone: result.phone, phone_verified: true },
+    });
+    setOtpSent(false);
+    setEditingPhone(false);
+    setOtpCode("");
   }
 
   async function handleChangePassword(e: React.FormEvent) {
@@ -55,7 +136,9 @@ export default function SettingsPage() {
     }
 
     setSavingPassword(true);
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
     setSavingPassword(false);
 
     if (error) {
@@ -67,22 +150,39 @@ export default function SettingsPage() {
     }
   }
 
+  function handleLogout() {
+    if (confirm("Log out of your account?")) {
+      logout();
+    }
+  }
+
   return (
     <div className="mx-auto max-w-lg px-6 py-16 sm:px-8">
-      <p className="font-mono text-xs uppercase tracking-widest2 text-accentSoft">Account</p>
-      <h1 className="mt-3 font-display text-4xl text-ink md:text-5xl">Settings</h1>
+      <p className="font-mono text-xs uppercase tracking-widest2 text-accentSoft">
+        Account
+      </p>
+      <h1 className="mt-3 font-display text-4xl text-ink md:text-5xl">
+        Settings
+      </h1>
 
+      {/* Profile */}
       <div className="mt-10 border border-line bg-surface p-6">
         <h2 className="font-display text-xl text-ink">Profile</h2>
 
         <div className="mt-4">
-          <label className="block font-mono text-xs uppercase tracking-wide text-muted">Email</label>
+          <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+            Email
+          </label>
           <p className="mt-2 text-sm text-ink">{user.email}</p>
-          <p className="mt-1 text-xs text-muted">Email can't be changed here — contact support if needed.</p>
+          <p className="mt-1 text-xs text-muted">
+            Email can't be changed here — contact support if needed.
+          </p>
         </div>
 
         <form onSubmit={handleSaveName} className="mt-6">
-          <label className="block font-mono text-xs uppercase tracking-wide text-muted">Full Name</label>
+          <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+            Full Name
+          </label>
           <input
             type="text"
             value={name}
@@ -90,67 +190,141 @@ export default function SettingsPage() {
             className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
           />
           <div className="mt-3 flex items-center gap-3">
-            <button type="submit" disabled={savingName} className="bg-accent px-5 py-2 font-mono text-xs uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={savingName}
+              className="bg-accent px-5 py-2 font-mono text-xs uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
+            >
               {savingName ? "Saving…" : "Save"}
             </button>
-            {nameStatus && <span className="text-xs text-accentSoft">{nameStatus}</span>}
+            {nameStatus && (
+              <span className="text-xs text-accentSoft">{nameStatus}</span>
+            )}
           </div>
         </form>
       </div>
 
+      {/* Shipping info */}
+      <div className="mt-6 border border-line bg-surface p-6">
+        <h2 className="font-display text-xl text-ink">Shipping Info</h2>
+        <p className="mt-1 text-xs text-muted">
+          Saved here so checkout fills it in automatically.
+        </p>
+
+        <form onSubmit={handleSaveAddress} className="mt-4">
+          <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+            Address
+          </label>
+          <textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            rows={2}
+            className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+          />
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={savingAddress}
+              className="bg-accent px-5 py-2 font-mono text-xs uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
+            >
+              {savingAddress ? "Saving…" : "Save Address"}
+            </button>
+            {addressStatus && (
+              <span className="text-xs text-accentSoft">{addressStatus}</span>
+            )}
+          </div>
+        </form>
+
+        <div className="mt-6 border-t border-line pt-6">
+          <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+            Phone Number
+          </label>
+
+          {user.phoneVerified && !editingPhone ? (
+            <div className="mt-2 flex items-center gap-3">
+              <p className="text-sm text-ink">{user.phone}</p>
+              <span className="font-mono text-xs uppercase text-accentSoft">
+                Verified ✓
+              </span>
+              <button
+                onClick={() => {
+                  setEditingPhone(true);
+                  setOtpSent(false);
+                  setPhone(user.phone);
+                }}
+                className="font-mono text-xs uppercase text-muted hover:text-accent"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="09XXXXXXXXX"
+                  disabled={otpSent}
+                  className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none disabled:opacity-50"
+                />
+                {!otpSent && (
+                  <button
+                    onClick={handleSendCode}
+                    disabled={phoneBusy}
+                    className="border border-line px-4 font-mono text-xs uppercase tracking-wide text-ink hover:border-accentSoft disabled:opacity-50"
+                  >
+                    {phoneBusy ? "Sending…" : "Send Code"}
+                  </button>
+                )}
+              </div>
+
+              {otpSent && (
+                <div className="mt-3 flex gap-2">
+                  <input
+                    type="text"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    placeholder="6-digit code"
+                    className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                  />
+                  <button
+                    onClick={handleVerifyCode}
+                    disabled={phoneBusy}
+                    className="bg-accent px-4 font-mono text-xs uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
+                  >
+                    Verify
+                  </button>
+                </div>
+              )}
+
+              {phoneError && (
+                <p className="mt-2 text-xs text-accent">{phoneError}</p>
+              )}
+              {otpSent && (
+                <p className="mt-2 text-xs text-muted">
+                  Code sent — check your phone (or the server console if
+                  SMS_API_KEY isn't set).
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Password */}
       <div className="mt-6 border border-line bg-surface p-6">
         <h2 className="font-display text-xl text-ink">Change Password</h2>
 
         <form onSubmit={handleChangePassword} className="mt-4 space-y-4">
           <div>
-            <label className="block font-mono text-xs uppercase tracking-wide text-muted">New Password</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-            />
+            <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+              New Password
+            </label>
+            <div className="mt-2">
+              <PasswordInput value={newPassword} onChange={setNewPassword} />
+            </div>
           </div>
           <div>
-            <label className="block font-mono text-xs uppercase tracking-wide text-muted">Confirm New Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-            />
-          </div>
-
-          {passwordError && <p className="text-sm text-accent">{passwordError}</p>}
-
-          <div className="flex items-center gap-3">
-            <button type="submit" disabled={savingPassword} className="bg-accent px-5 py-2 font-mono text-xs uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50">
-              {savingPassword ? "Saving…" : "Update Password"}
-            </button>
-            {passwordStatus && <span className="text-xs text-accentSoft">{passwordStatus}</span>}
-          </div>
-        </form>
-      </div>
-
-      <div className="mt-6 border border-line bg-surface p-6">
-        <h2 className="font-display text-xl text-ink">Account</h2>
-        <button onClick={() => setConfirmLogout(true)} className="mt-4 border border-line px-5 py-2 font-mono text-xs uppercase tracking-wide text-ink hover:border-accentSoft hover:text-accentSoft">
-          Log Out
-        </button>
-      </div>
-
-      <ConfirmDialog
-        open={confirmLogout}
-        title="Log Out"
-        message="Are you sure you want to logout?"
-        confirmLabel="Log Out"
-        danger
-        onCancel={() => setConfirmLogout(false)}
-        onConfirm={() => {
-          logout();
-          setConfirmLogout(false);
-        }}
-      />
-    </div>
-  );
-}
+            <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+              Confirm New Password
