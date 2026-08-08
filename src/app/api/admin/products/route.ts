@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/admin";
@@ -67,10 +66,6 @@ export async function POST(request: Request) {
         categoryId,
       },
     });
-    // Make the new product show up on the shop/home pages immediately,
-    // instead of waiting for the 60s ISR window or the next deploy.
-    revalidatePath("/products");
-    revalidatePath("/");
     return NextResponse.json({ product });
   } catch (err: any) {
     if (err.code === "P2002") {
