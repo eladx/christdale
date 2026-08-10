@@ -1,6 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserFromRequest } from "@/lib/supabase/server";
+import { computeVariantKey } from "@/lib/variant";
+
+function serializeCart(cart: {
+  items: {
+    productId: string;
+    quantity: number;
+    selectedOptions: unknown;
+    variantKey: string;
+    product: { name: string; imageUrl: string; price: unknown };
+  }[];
+}) {
+  return cart.items.map((i) => ({
+    productId: i.productId,
+    variantKey: i.variantKey,
+    selectedOptions: i.selectedOptions,
+    name: i.product.name,
+    price: Number(i.product.price),
+    image: i.product.imageUrl,
+    quantity: i.quantity,
+  }));
+}
 
 export async function GET(request: Request) {
   const user = await getUserFromRequest(request);
@@ -11,33 +32,22 @@ export async function GET(request: Request) {
     include: { items: { include: { product: true } } },
   });
 
-  const items = (cart?.items ?? []).map((i) => ({
-    productId: i.productId,
-    name: i.product.name,
-    price: Number(i.product.price),
-    image: i.product.imageUrl,
-    quantity: i.quantity,
-  }));
-
-  return NextResponse.json({ items });
+  return NextResponse.json({ items: cart ? serializeCart(cart) : [] });
 }
 
+// Increments quantity for the given product + variant, creating the
+// cart line if it doesn't exist yet. Returns the full updated cart so
+// the client doesn't need a second round trip to stay in sync.
 export async function POST(request: Request) {
   const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { productId, quantity } = await request.json();
+  const { productId, quantity, selectedOptions } = await request.json();
   if (!productId || !quantity) {
     return NextResponse.json({ error: "Missing productId or quantity" }, { status: 400 });
   }
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product || !product.isActive) {
-    return NextResponse.json({ error: "Product is not available" }, { status: 400 });
-  }
-  if (product.stockCount <= 0) {
-    return NextResponse.json({ error: "Product is out of stock" }, { status: 400 });
-  }
+  const variantKey = computeVariantKey(selectedOptions);
 
   const cart = await prisma.cart.upsert({
     where: { userId: user.id },
@@ -46,24 +56,24 @@ export async function POST(request: Request) {
   });
 
   const existing = await prisma.cartItem.findUnique({
-    where: { cartId_productId: { cartId: cart.id, productId } },
+    where: { cartId_productId_variantKey: { cartId: cart.id, productId, variantKey } },
   });
-
-  // Cap the cart quantity at whatever's actually in stock, whether this
-  // is a fresh add or topping up an item already in the cart.
-  const requestedTotal = (existing?.quantity ?? 0) + quantity;
-  const cappedQuantity = Math.min(requestedTotal, product.stockCount);
 
   if (existing) {
     await prisma.cartItem.update({
       where: { id: existing.id },
-      data: { quantity: cappedQuantity },
+      data: { quantity: existing.quantity + quantity },
     });
   } else {
     await prisma.cartItem.create({
-      data: { cartId: cart.id, productId, quantity: cappedQuantity },
+      data: { cartId: cart.id, productId, quantity, selectedOptions, variantKey },
     });
   }
 
-  return NextResponse.json({ ok: true });
+  const updated = await prisma.cart.findUnique({
+    where: { id: cart.id },
+    include: { items: { include: { product: true } } },
+  });
+
+  return NextResponse.json({ items: updated ? serializeCart(updated) : [] });
 }

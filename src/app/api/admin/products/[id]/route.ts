@@ -26,7 +26,27 @@ export async function PATCH(
   }
   if (typeof body.categoryId === "string") data.categoryId = body.categoryId;
 
-  await prisma.product.update({ where: { id }, data });
+  // Variations are edited as a whole list in the admin UI — simplest
+  // correct approach is replace-all rather than diffing individual rows.
+  if (Array.isArray(body.variations)) {
+    await prisma.$transaction([
+      prisma.productVariation.deleteMany({ where: { productId: id } }),
+      prisma.product.update({
+        where: { id },
+        data: {
+          ...data,
+          variations: {
+            create: body.variations.map((v: { name: string; options: string[] }) => ({
+              name: v.name,
+              options: v.options,
+            })),
+          },
+        },
+      }),
+    ]);
+  } else {
+    await prisma.product.update({ where: { id }, data });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -11,7 +11,7 @@ export async function GET(request: Request) {
 
   const [products, categories] = await Promise.all([
     prisma.product.findMany({
-      include: { category: true },
+      include: { category: true, variations: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
@@ -29,6 +29,7 @@ export async function GET(request: Request) {
       imageUrl: p.imageUrl,
       categoryId: p.categoryId,
       categoryName: p.category.name,
+      variations: p.variations.map((v) => ({ name: v.name, options: v.options })),
     })),
     categories: categories.map((c) => ({ id: c.id, name: c.name })),
   });
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, description, price, imageUrl, stockCount, categoryId } =
+  const { name, description, price, imageUrl, stockCount, categoryId, variations } =
     await request.json();
 
   if (!name || !price || !imageUrl || !categoryId) {
@@ -64,6 +65,12 @@ export async function POST(request: Request) {
         images: [imageUrl],
         stockCount: stockCount ?? 0,
         categoryId,
+        variations: {
+          create: (variations ?? []).map((v: { name: string; options: string[] }) => ({
+            name: v.name,
+            options: v.options,
+          })),
+        },
       },
     });
     return NextResponse.json({ product });

@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
-import ConfirmDialog from "@/components/ConfirmDialog";
 
 const links = [
   { href: "/", label: "Home" },
@@ -35,9 +35,15 @@ function CartIcon() {
 
 export default function Nav() {
   const [open, setOpen] = useState(false);
-  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { user, isAdmin, openAuthModal, logout } = useAuth();
   const { count } = useCart();
+
+  function handleLogout() {
+    if (confirm("Log out of your account?")) {
+      logout();
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-bg/90 backdrop-blur">
@@ -76,21 +82,78 @@ export default function Nav() {
                   </span>
                 )}
               </Link>
-              <div className="flex items-center gap-4">
-                <Link href="/orders" className="text-accentSoft hover:text-accent">
-                  Hi, {user.name}
-                </Link>
-                <Link href="/settings" className="hover:text-accent">
-                  Settings
-                </Link>
-                {isAdmin && (
-                  <Link href="/admin" className="hover:text-accent">
-                    Admin
-                  </Link>
-                )}
-                <button onClick={() => setConfirmLogout(true)} className="hover:text-accent">
-                  Log Out
+              <div className="relative">
+                <button
+                  onClick={() => setProfileOpen((v) => !v)}
+                  aria-label="Account menu"
+                  aria-expanded={profileOpen}
+                  className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-line bg-surface2 transition-colors hover:border-accentSoft"
+                >
+                  {user.avatarUrl ? (
+                    <Image
+                      src={user.avatarUrl}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="32px"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center font-display text-sm text-muted">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </button>
+
+                {profileOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setProfileOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full z-50 mt-2 w-56 border border-line bg-surface py-2 shadow-lg">
+                      <div className="border-b border-line px-4 py-3">
+                        <p className="font-display text-base text-ink">
+                          {user.name}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-muted">
+                          {user.email}
+                        </p>
+                      </div>
+                      <Link
+                        href="/orders"
+                        onClick={() => setProfileOpen(false)}
+                        className="block px-4 py-2 text-left normal-case tracking-normal text-ink hover:bg-surface2"
+                      >
+                        My Purchases
+                      </Link>
+                      <Link
+                        href="/settings"
+                        onClick={() => setProfileOpen(false)}
+                        className="block px-4 py-2 text-left normal-case tracking-normal text-ink hover:bg-surface2"
+                      >
+                        Settings
+                      </Link>
+                      {isAdmin && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setProfileOpen(false)}
+                          className="block px-4 py-2 text-left normal-case tracking-normal text-ink hover:bg-surface2"
+                        >
+                          Admin
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => {
+                          setProfileOpen(false);
+                          handleLogout();
+                        }}
+                        className="block w-full px-4 py-2 text-left normal-case tracking-normal text-ink hover:bg-surface2"
+                      >
+                        Log Out
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </>
           ) : (
@@ -112,12 +175,26 @@ export default function Nav() {
         </div>
 
         <button
-          className="text-ink md:hidden"
+          className="relative flex h-8 w-8 flex-col items-center justify-center gap-[5px] text-ink md:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-label="Toggle menu"
         >
-          <span className="font-mono text-sm">{open ? "CLOSE" : "MENU"}</span>
+          <span
+            className={`h-[2px] w-6 bg-current transition-transform duration-200 ${
+              open ? "translate-y-[7px] rotate-45" : ""
+            }`}
+          />
+          <span
+            className={`h-[2px] w-6 bg-current transition-opacity duration-200 ${
+              open ? "opacity-0" : "opacity-100"
+            }`}
+          />
+          <span
+            className={`h-[2px] w-6 bg-current transition-transform duration-200 ${
+              open ? "-translate-y-[7px] -rotate-45" : ""
+            }`}
+          />
         </button>
       </div>
 
@@ -168,7 +245,10 @@ export default function Nav() {
                 </Link>
               )}
               <button
-                onClick={() => setConfirmLogout(true)}
+                onClick={() => {
+                  handleLogout();
+                  setOpen(false);
+                }}
                 className="py-2 text-left hover:text-accent"
               >
                 Log Out
@@ -198,20 +278,6 @@ export default function Nav() {
           )}
         </nav>
       )}
-
-      <ConfirmDialog
-        open={confirmLogout}
-        title="Log Out"
-        message="Are you sure you want to logout?"
-        confirmLabel="Log Out"
-        danger
-        onCancel={() => setConfirmLogout(false)}
-        onConfirm={() => {
-          logout();
-          setConfirmLogout(false);
-          setOpen(false);
-        }}
-      />
     </header>
   );
 }

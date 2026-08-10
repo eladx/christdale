@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       image: i.product.imageUrl,
       quantity: i.quantity,
       unitPrice: Number(i.unitPrice),
+      selectedOptions: i.selectedOptions,
     })),
   }));
 

@@ -15,6 +15,7 @@ export type AdminProduct = {
   imageUrl: string;
   categoryId?: string;
   categoryName: string;
+  variations?: { name: string; options: string[] }[];
 };
 
 type Category = { id: string; name: string };
@@ -45,6 +46,12 @@ export default function AdminProductModal({
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
   const [imageMode, setImageMode] = useState<"url" | "upload">("url");
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
+  const [variations, setVariations] = useState<{ name: string; optionsText: string }[]>(
+    (product?.variations ?? []).map((v) => ({
+      name: v.name,
+      optionsText: v.options.join(", "),
+    }))
+  );
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -77,6 +84,16 @@ export default function AdminProductModal({
     setSaving(true);
     const headers = await authHeader();
 
+    const cleanedVariations = variations
+      .filter((v) => v.name.trim() && v.optionsText.trim())
+      .map((v) => ({
+        name: v.name.trim(),
+        options: v.optionsText
+          .split(",")
+          .map((o) => o.trim())
+          .filter(Boolean),
+      }));
+
     if (product) {
       await fetch(`/api/admin/products/${product.id}`, {
         method: "PATCH",
@@ -89,6 +106,7 @@ export default function AdminProductModal({
           categoryId,
           imageUrl,
           isActive,
+          variations: cleanedVariations,
         }),
       });
     } else {
@@ -102,6 +120,7 @@ export default function AdminProductModal({
           stockCount: Number(stockCount),
           categoryId,
           imageUrl,
+          variations: cleanedVariations,
         }),
       });
       if (!res.ok) {
@@ -277,6 +296,59 @@ export default function AdminProductModal({
                 <Image src={imageUrl} alt="Preview" fill className="object-cover" sizes="128px" />
               </div>
             )}
+          </div>
+
+          {/* Variations */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+                Variations (optional)
+              </label>
+              <button
+                onClick={() =>
+                  setVariations((prev) => [...prev, { name: "", optionsText: "" }])
+                }
+                className="font-mono text-xs uppercase text-accent hover:underline"
+              >
+                + Add Group
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              e.g. "Size" with options "S, M, L" — separate options with commas.
+            </p>
+
+            {variations.map((v, i) => (
+              <div key={i} className="mt-3 flex gap-2">
+                <input
+                  value={v.name}
+                  onChange={(e) =>
+                    setVariations((prev) =>
+                      prev.map((g, gi) => (gi === i ? { ...g, name: e.target.value } : g))
+                    )
+                  }
+                  placeholder="Group name (e.g. Size)"
+                  className="w-32 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                />
+                <input
+                  value={v.optionsText}
+                  onChange={(e) =>
+                    setVariations((prev) =>
+                      prev.map((g, gi) =>
+                        gi === i ? { ...g, optionsText: e.target.value } : g
+                      )
+                    )
+                  }
+                  placeholder="Options, comma-separated"
+                  className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                />
+                <button
+                  onClick={() => setVariations((prev) => prev.filter((_, gi) => gi !== i))}
+                  className="px-2 font-mono text-xs text-muted hover:text-accent"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
           </div>
 
           {product && (

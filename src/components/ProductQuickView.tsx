@@ -17,16 +17,21 @@ export default function ProductQuickView() {
 
   const [imageIndex, setImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [variantError, setVariantError] = useState("");
   const [voucher, setVoucher] = useState("");
   const [voucherMessage, setVoucherMessage] = useState("");
   const [payment, setPayment] =
     useState<(typeof PAYMENT_METHODS)[number]>("GCash");
   const [added, setAdded] = useState(false);
 
+  // Reset transient state whenever a different product is opened.
   useEffect(() => {
     if (isOpen) {
       setImageIndex(0);
       setQuantity(1);
+      setSelectedOptions({});
+      setVariantError("");
       setVoucher("");
       setVoucherMessage("");
       setAdded(false);
@@ -36,18 +41,32 @@ export default function ProductQuickView() {
   if (!isOpen || !product) return null;
 
   const images = product.images;
+  const needsVariantSelection = product.variations.length > 0;
+  const allVariantsSelected = product.variations.every(
+    (v) => selectedOptions[v.name]
+  );
 
   function handleAddToCart() {
+    if (needsVariantSelection && !allVariantsSelected) {
+      setVariantError("Select an option for each variation.");
+      return;
+    }
+    setVariantError("");
     requireAuth(() => {
-      addItem(product!, quantity);
+      addItem(product!, quantity, needsVariantSelection ? selectedOptions : undefined);
       setAdded(true);
       setTimeout(() => setAdded(false), 1500);
     });
   }
 
   function handleBuyNow() {
+    if (needsVariantSelection && !allVariantsSelected) {
+      setVariantError("Select an option for each variation.");
+      return;
+    }
+    setVariantError("");
     requireAuth(() => {
-      addItem(product!, quantity);
+      addItem(product!, quantity, needsVariantSelection ? selectedOptions : undefined);
       closeQuickView();
       router.push("/cart");
     });
@@ -55,6 +74,8 @@ export default function ProductQuickView() {
 
   function handleApplyVoucher() {
     if (!voucher.trim()) return;
+    // No voucher/discount model exists yet — this just confirms the
+    // code was noted, real validation comes with checkout (Phase 3c).
     setVoucherMessage(`"${voucher}" will be applied at checkout.`);
   }
 
@@ -83,6 +104,7 @@ export default function ProductQuickView() {
         </div>
 
         <div className="grid gap-0 md:grid-cols-2">
+          {/* Image carousel */}
           <div className="relative aspect-square bg-surface2">
             <Image
               src={images[imageIndex]}
@@ -130,6 +152,7 @@ export default function ProductQuickView() {
             )}
           </div>
 
+          {/* Details */}
           <div className="p-6">
             <h2 className="font-display text-2xl text-ink">{product.name}</h2>
             <p className="mt-2 font-mono text-lg text-ink">
@@ -137,6 +160,36 @@ export default function ProductQuickView() {
             </p>
             <p className="mt-4 text-sm text-muted">{product.description}</p>
 
+            {/* Variations */}
+            {product.variations.map((group) => (
+              <div key={group.name} className="mt-6">
+                <label className="block font-mono text-xs uppercase tracking-wide text-muted">
+                  {group.name}
+                </label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {group.options.map((option) => (
+                    <button
+                      key={option}
+                      onClick={() =>
+                        setSelectedOptions((prev) => ({ ...prev, [group.name]: option }))
+                      }
+                      className={`border px-4 py-2 font-mono text-xs uppercase tracking-wide ${
+                        selectedOptions[group.name] === option
+                          ? "border-accent text-accent"
+                          : "border-line text-muted hover:text-ink"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {variantError && (
+              <p className="mt-2 text-xs text-accent">{variantError}</p>
+            )}
+
+            {/* Quantity */}
             <div className="mt-6">
               <label className="block font-mono text-xs uppercase tracking-wide text-muted">
                 Quantity
@@ -162,6 +215,7 @@ export default function ProductQuickView() {
               </div>
             </div>
 
+            {/* Voucher */}
             <div className="mt-6">
               <label className="block font-mono text-xs uppercase tracking-wide text-muted">
                 Voucher Code
@@ -188,6 +242,7 @@ export default function ProductQuickView() {
               )}
             </div>
 
+            {/* Payment method */}
             <div className="mt-6">
               <label className="block font-mono text-xs uppercase tracking-wide text-muted">
                 Mode of Payment

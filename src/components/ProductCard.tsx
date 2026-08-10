@@ -2,15 +2,19 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/products";
 import { useQuickView } from "@/context/QuickViewContext";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 
 export default function ProductCard({ product }: { product: Product }) {
   const { openQuickView } = useQuickView();
+  const { requireAuth } = useAuth();
+  const { addItem } = useCart();
+  const router = useRouter();
   const [hoverIndex, setHoverIndex] = useState(0);
+  const [added, setAdded] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const hasGallery = product.images.length > 1;
@@ -29,12 +33,20 @@ export default function ProductCard({ product }: { product: Product }) {
     setHoverIndex(0);
   }
 
-  const { requireAuth } = useAuth();
-  const { addItem } = useCart();
-  const router = useRouter();
-  const [added, setAdded] = useState(false);
+  // Clean up if the card unmounts mid-hover (e.g. filter changes it away).
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const hasVariations = product.variations.length > 0;
 
   function handleAddToCart() {
+    if (hasVariations) {
+      openQuickView(product);
+      return;
+    }
     requireAuth(() => {
       addItem(product);
       setAdded(true);
@@ -43,17 +55,15 @@ export default function ProductCard({ product }: { product: Product }) {
   }
 
   function handleBuyNow() {
+    if (hasVariations) {
+      openQuickView(product);
+      return;
+    }
     requireAuth(() => {
       addItem(product);
       router.push("/cart");
     });
   }
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
 
   return (
     <div className="group border border-line bg-surface transition-colors hover:border-accentSoft">
@@ -108,7 +118,13 @@ export default function ProductCard({ product }: { product: Product }) {
             disabled={!product.inStock}
             className="flex-1 border border-line py-2 font-mono text-xs uppercase tracking-wide text-ink transition-colors hover:border-accentSoft disabled:cursor-not-allowed disabled:border-line disabled:text-muted"
           >
-            {!product.inStock ? "Out of Stock" : added ? "Added ✓" : "Add to Cart"}
+            {!product.inStock
+              ? "Out of Stock"
+              : hasVariations
+              ? "Select Options"
+              : added
+              ? "Added ✓"
+              : "Add to Cart"}
           </button>
           <button
             onClick={handleBuyNow}

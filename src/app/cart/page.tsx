@@ -1,28 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase/client";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import ShippingEditModal from "@/components/ShippingEditModal";
 
 const PAYMENT_METHODS = ["GCash", "Maya", "Maribank"] as const;
 
+function lineKey(productId: string, variantKey: string) {
+  return `${productId}::${variantKey}`;
+}
+
 export default function CartPage() {
-  const {
-    items,
-    removeItem,
-    removeItems,
-    selected,
-    toggleSelect,
-    selectAll,
-    deselectAll,
-    selectedItems,
-    selectedTotal,
-  } = useCart();
+  const { items, removeItem, updateQuantity, total } = useCart();
   const { user, openAuthModal } = useAuth();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [payment, setPayment] =
     useState<(typeof PAYMENT_METHODS)[number]>("GCash");
   const [fullName, setFullName] = useState("");
@@ -30,16 +25,34 @@ export default function CartPage() {
   const [phone, setPhone] = useState("");
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState("");
+  const [showShippingModal, setShowShippingModal] = useState(false);
 
-  // Which single item (by productId) is pending a Remove confirmation,
-  // vs. the bulk "Delete Selected" confirmation — kept separate so the
-  // dialog can show the right message for each case.
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  // Default to all items selected. New items added later also default in.
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      items.forEach((i) => {
+        const key = lineKey(i.productId, i.variantKey);
+        if (!prev.has(key)) next.add(key);
+      });
+      Array.from(next).forEach((key) => {
+        if (!items.find((i) => lineKey(i.productId, i.variantKey) === key)) {
+          next.delete(key);
+        }
+      });
+      return next;
+    });
+  }, [items]);
 
-  // The nav already hides the cart link when logged out, but someone
-  // could still hit /cart directly by URL — guard the page itself too.
+  // Prefill shipping details from saved profile (Settings), still editable.
+  useEffect(() => {
+    if (user) {
+      setFullName((v) => v || user.name);
+      setAddress((v) => v || user.address);
+      setPhone((v) => v || user.phone);
+    }
+  }, [user]);
+
   if (!user) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16 text-center sm:px-8">
@@ -62,6 +75,29 @@ export default function CartPage() {
       </div>
     );
   }
+
+  function toggleSelected(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function handleRemove(productId: string, variantKey: string, name: string) {
+    if (confirm(`Remove "${name}" from your cart?`)) {
+      removeItem(productId, variantKey);
+    }
+  }
+
+  const selectedItems = items.filter((i) =>
+    selected.has(lineKey(i.productId, i.variantKey))
+  );
+  const selectedTotal = selectedItems.reduce(
+    (sum, i) => sum + i.price * i.quantity,
+    0
+  );
 
   async function handleCheckout() {
     setError("");
@@ -87,7 +123,10 @@ export default function CartPage() {
         body: JSON.stringify({
           paymentMethod: payment,
           shippingInfo: { fullName, address, phone },
-          productIds: selectedItems.map((i) => i.productId),
+          items: selectedItems.map((i) => ({
+            productId: i.productId,
+            variantKey: i.variantKey,
+          })),
         }),
       });
       const result = await res.json();
@@ -126,107 +165,125 @@ export default function CartPage() {
         </div>
       ) : (
         <div className="mt-10">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-            <label className="flex items-center gap-2 font-mono text-xs uppercase tracking-wide text-muted">
-              <input
-                type="checkbox"
-                checked={selected.size === items.length}
-                onChange={(e) => (e.target.checked ? selectAll() : deselectAll())}
-                className="h-4 w-4 accent-accent"
-              />
-              Select all
-            </label>
-            <div className="flex items-center gap-4">
-              <p className="font-mono text-xs text-muted">
-                {selectedItems.length} of {items.length} selected
+          <div className="divide-y divide-line border border-line bg-surface">
+            {items.map((item) => {
+              const key = lineKey(item.productId, item.variantKey);
+              return (
+                <div key={key} className="flex items-center gap-4 p-4">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(key)}
+                    onChange={() => toggleSelected(key)}
+                    className="h-4 w-4 accent-accent"
+                    aria-label={`Select ${item.name} for checkout`}
+                  />
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden bg-surface2">
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      className="object-cover"
+                      sizes="64px"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-display text-lg text-ink">
+                      {item.name}
+                    </p>
+                    {item.selectedOptions && (
+                      <p className="font-mono text-xs text-accentSoft">
+                        {Object.entries(item.selectedOptions)
+                          .map(([k, v]) => `${k}: ${v}`)
+                          .join(" · ")}
+                      </p>
+                    )}
+                    <p className="font-mono text-sm text-muted">
+                      ₱{item.price.toLocaleString()} each
+                    </p>
+                  </div>
+
+                  {/* Quantity stepper */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        updateQuantity(item.productId, item.variantKey, item.quantity - 1)
+                      }
+                      className="h-7 w-7 border border-line text-ink hover:border-accentSoft"
+                      aria-label="Decrease quantity"
+                    >
+                      −
+                    </button>
+                    <span className="w-6 text-center font-mono text-sm text-ink">
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() =>
+                        updateQuantity(item.productId, item.variantKey, item.quantity + 1)
+                      }
+                      className="h-7 w-7 border border-line text-ink hover:border-accentSoft"
+                      aria-label="Increase quantity"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => handleRemove(item.productId, item.variantKey, item.name)}
+                    className="font-mono text-xs uppercase tracking-wide text-muted hover:text-accent"
+                  >
+                    Remove
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-6">
+            <div className="flex items-center justify-between">
+              <p className="font-mono text-xs uppercase tracking-wide text-muted">
+                Shipping Details
               </p>
               <button
-                onClick={() => setConfirmBulkDelete(true)}
-                disabled={selectedItems.length === 0}
-                className="font-mono text-xs uppercase tracking-wide text-muted hover:text-accent disabled:opacity-40 disabled:hover:text-muted"
+                onClick={() => setShowShippingModal(true)}
+                aria-label="Edit shipping details"
+                className="text-muted hover:text-accent"
               >
-                Delete
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
+                </svg>
               </button>
             </div>
-          </div>
 
-          <div className="mt-2 divide-y divide-line border border-line bg-surface">
-            {items.map((item) => (
-              <div
-                key={item.productId}
-                className="flex items-center gap-4 p-4"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.has(item.productId)}
-                  onChange={() => toggleSelect(item.productId)}
-                  className="h-4 w-4 shrink-0 accent-accent"
-                  aria-label={`Select ${item.name} for checkout`}
-                />
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden bg-surface2">
-                  <Image
-                    src={item.image}
-                    alt={item.name}
-                    fill
-                    className="object-cover"
-                    sizes="64px"
-                  />
-                </div>
-                <div className="flex-1">
-                  <p className="font-display text-lg text-ink">
-                    {item.name}
-                  </p>
-                  <p className="font-mono text-sm text-muted">
-                    Qty {item.quantity} · ₱{item.price.toLocaleString()} each
-                  </p>
-                </div>
-                <button
-                  onClick={() => setConfirmRemoveId(item.productId)}
-                  className="font-mono text-xs uppercase tracking-wide text-muted hover:text-accent"
-                >
-                  Remove
-                </button>
+            {fullName || address || phone ? (
+              <div className="mt-2 border border-line bg-surface2 p-3 text-sm">
+                <p className="text-ink">{fullName || "—"}</p>
+                <p className="mt-1 text-muted">{address || "—"}</p>
+                <p className="mt-1 text-muted">{phone || "—"}</p>
               </div>
-            ))}
-          </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted">
+                No shipping details yet — click the icon to add them.
+              </p>
+            )}
 
-          <div className="mt-6 space-y-4">
-            <p className="font-mono text-xs uppercase tracking-wide text-muted">
-              Shipping Details
-            </p>
-            <div>
-              <label className="block font-mono text-xs uppercase tracking-wide text-muted">
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-mono text-xs uppercase tracking-wide text-muted">
-                Address
-              </label>
-              <textarea
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                rows={2}
-                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block font-mono text-xs uppercase tracking-wide text-muted">
-                Phone
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-              />
-            </div>
+            {(!user.address || !user.phoneVerified) && (
+              <p className="mt-2 text-xs text-muted">
+                <Link href="/settings" className="text-accent hover:underline">
+                  Save your address and verify your phone in Settings
+                </Link>{" "}
+                to skip this next time.
+              </p>
+            )}
           </div>
 
           <div className="mt-6">
@@ -252,7 +309,7 @@ export default function CartPage() {
 
           <div className="mt-6 flex items-center justify-between">
             <p className="font-mono text-sm uppercase tracking-wide text-muted">
-              Total ({selectedItems.length} item{selectedItems.length === 1 ? "" : "s"})
+              Total ({selectedItems.length} of {items.length} selected)
             </p>
             <p className="font-display text-2xl text-ink">
               ₱{selectedTotal.toLocaleString()}
@@ -268,8 +325,6 @@ export default function CartPage() {
           >
             {checkingOut
               ? "Redirecting…"
-              : selectedItems.length === 0
-              ? "Select items to check out"
               : `Checkout (${selectedItems.length})`}
           </button>
           <p className="mt-3 text-center text-xs text-muted">
@@ -278,42 +333,19 @@ export default function CartPage() {
         </div>
       )}
 
-      <ConfirmDialog
-        open={confirmRemoveId !== null}
-        title="Remove Item"
-        message={
-          confirmRemoveId
-            ? `Are you sure you want to remove "${items.find((i) => i.productId === confirmRemoveId)?.name ?? "this item"}"?`
-            : ""
-        }
-        confirmLabel="Remove"
-        danger
-        busy={deleting}
-        onCancel={() => setConfirmRemoveId(null)}
-        onConfirm={async () => {
-          if (!confirmRemoveId) return;
-          setDeleting(true);
-          await removeItem(confirmRemoveId);
-          setDeleting(false);
-          setConfirmRemoveId(null);
-        }}
-      />
-
-      <ConfirmDialog
-        open={confirmBulkDelete}
-        title="Delete Items"
-        message={`Are you sure you want to delete ${selectedItems.length} selected item${selectedItems.length === 1 ? "" : "s"}?`}
-        confirmLabel="Delete"
-        danger
-        busy={deleting}
-        onCancel={() => setConfirmBulkDelete(false)}
-        onConfirm={async () => {
-          setDeleting(true);
-          await removeItems(selectedItems.map((i) => i.productId));
-          setDeleting(false);
-          setConfirmBulkDelete(false);
-        }}
-      />
+      {showShippingModal && (
+        <ShippingEditModal
+          fullName={fullName}
+          address={address}
+          phone={phone}
+          onSave={({ fullName: n, address: a, phone: p }) => {
+            setFullName(n);
+            setAddress(a);
+            setPhone(p);
+          }}
+          onClose={() => setShowShippingModal(false)}
+        />
+      )}
     </div>
   );
 }

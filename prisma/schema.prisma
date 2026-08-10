@@ -79,8 +79,17 @@ model Product {
 
   cartItems  CartItem[]
   orderItems OrderItem[]
+  variations ProductVariation[]
 
   @@index([categoryId])
+}
+
+model ProductVariation {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  options   String[]
 }
 
 // --- Cart (FR-006) ---
@@ -93,14 +102,16 @@ model Cart {
 }
 
 model CartItem {
-  id        String  @id @default(cuid())
-  cartId    String
-  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
-  quantity  Int     @default(1)
+  id              String  @id @default(cuid())
+  cartId          String
+  cart            Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId       String
+  product         Product @relation(fields: [productId], references: [id])
+  quantity        Int     @default(1)
+  selectedOptions Json?
+  variantKey      String  @default("")
 
-  @@unique([cartId, productId])
+  @@unique([cartId, productId, variantKey])
 }
 
 // --- Checkout & Orders (FR-007, FR-008, FR-009, FR-014) ---
@@ -128,6 +139,7 @@ model OrderItem {
   product     Product @relation(fields: [productId], references: [id])
   quantity    Int
   unitPrice   Decimal @db.Decimal(10, 2) // snapshot at time of purchase
+  selectedOptions Json?
 }
 
 // --- Coaching (FR-010, FR-011, FR-015) ---

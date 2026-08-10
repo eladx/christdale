@@ -19,16 +19,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { paymentMethod, shippingInfo, productIds } = await request.json();
+  const { paymentMethod, shippingInfo, items: selectedRefs } = await request.json();
   const paymongoMethod = PAYMENT_METHOD_MAP[paymentMethod];
   if (!paymongoMethod) {
     return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
   }
   if (!shippingInfo?.fullName || !shippingInfo?.address || !shippingInfo?.phone) {
     return NextResponse.json({ error: "Shipping details are required" }, { status: 400 });
-  }
-  if (!Array.isArray(productIds) || productIds.length === 0) {
-    return NextResponse.json({ error: "Select at least one item to check out" }, { status: 400 });
   }
 
   const cart = await prisma.cart.findUnique({
@@ -40,28 +37,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
   }
 
-  // Only the items the customer actually checked get ordered — anything
-  // left unselected stays in the cart untouched.
-  const selectedIds = new Set(productIds);
-  const cartItems = cart.items.filter((i) => selectedIds.has(i.productId));
+  // Only checkout the exact product+variant lines the customer selected
+  // on the cart page. Falls back to the whole cart for backward
+  // compatibility if items wasn't sent.
+  const selectedItems =
+    Array.isArray(selectedRefs) && selectedRefs.length > 0
+      ? cart.items.filter((i) =>
+          selectedRefs.some(
+            (r: { productId: string; variantKey: string }) =>
+              r.productId === i.productId && r.variantKey === i.variantKey
+          )
+        )
+      : cart.items;
 
-  if (cartItems.length === 0) {
-    return NextResponse.json({ error: "Selected items are no longer in your cart" }, { status: 400 });
+  if (selectedItems.length === 0) {
+    return NextResponse.json({ error: "No items selected" }, { status: 400 });
   }
 
-  // Stock can change between "add to cart" and "checkout" (someone else
-  // buys it, or an admin adjusts it) — re-check right before charging.
-  const outOfStock = cartItems.filter((i) => i.quantity > i.product.stockCount);
-  if (outOfStock.length > 0) {
-    return NextResponse.json(
-      {
-        error: `Not enough stock for: ${outOfStock.map((i) => i.product.name).join(", ")}. Please update the quantity in your cart.`,
-      },
-      { status: 400 }
-    );
-  }
-
-  const totalAmount = cartItems.reduce(
+  const totalAmount = selectedItems.reduce(
     (sum, i) => sum + Number(i.product.price) * i.quantity,
     0
   );
@@ -75,10 +68,11 @@ export async function POST(request: Request) {
       totalAmount,
       shippingInfo,
       items: {
-        create: cartItems.map((i) => ({
+        create: selectedItems.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
           unitPrice: i.product.price,
+          selectedOptions: i.selectedOptions ?? undefined,
         })),
       },
     },
@@ -109,10 +103,14 @@ export async function POST(request: Request) {
           show_description: true,
           show_line_items: true,
           description: `Christdale order ${order.id}`,
-          line_items: cartItems.map((i) => ({
+          line_items: selectedItems.map((i) => ({
             currency: "PHP",
             amount: Math.round(Number(i.product.price) * 100), // centavos
-            name: i.product.name,
+            name: i.selectedOptions
+              ? `${i.product.name} (${Object.entries(i.selectedOptions as Record<string, string>)
+                  .map(([k, v]) => `${k}: ${v}`)
+                  .join(", ")})`
+              : i.product.name,
             quantity: i.quantity,
           })),
           payment_method_types: [paymongoMethod],

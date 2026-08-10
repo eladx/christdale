@@ -1,14 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase/client";
+import { uploadAvatar } from "@/lib/supabase/storage";
 import PasswordInput from "@/components/PasswordInput";
 
 export default function SettingsPage() {
   const { user, openAuthModal, logout } = useAuth();
 
   const [name, setName] = useState(user?.name ?? "");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+  const [avatarStatus, setAvatarStatus] = useState("");
   const [nameStatus, setNameStatus] = useState("");
   const [savingName, setSavingName] = useState(false);
 
@@ -51,6 +58,37 @@ export default function SettingsPage() {
   async function authHeader() {
     const { data } = await supabase.auth.getSession();
     return { Authorization: `Bearer ${data.session?.access_token ?? ""}` };
+  }
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarError("");
+    setAvatarStatus("");
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  }
+
+  async function handleAvatarSave() {
+    if (!avatarFile) return;
+    setAvatarError("");
+    setAvatarUploading(true);
+    try {
+      const url = await uploadAvatar(avatarFile);
+      const { error } = await supabase.auth.updateUser({
+        data: { avatar_url: url },
+      });
+      if (error) throw error;
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      setAvatarStatus("Saved.");
+    } catch (err) {
+      setAvatarError(
+        "Upload failed — make sure the 'avatars' Storage bucket exists and is public."
+      );
+    } finally {
+      setAvatarUploading(false);
+    }
   }
 
   async function handleSaveName(e: React.FormEvent) {
@@ -168,6 +206,62 @@ export default function SettingsPage() {
       {/* Profile */}
       <div className="mt-10 border border-line bg-surface p-6">
         <h2 className="font-display text-xl text-ink">Profile</h2>
+
+        <div className="mt-4 flex items-center gap-4">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-line bg-surface2">
+            {avatarPreview ? (
+              <Image
+                src={avatarPreview}
+                alt="Preview"
+                fill
+                className="object-cover"
+                sizes="64px"
+                unoptimized
+              />
+            ) : user.avatarUrl ? (
+              <Image
+                src={user.avatarUrl}
+                alt="Profile photo"
+                fill
+                className="object-cover"
+                sizes="64px"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center font-display text-xl text-muted">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <label className="inline-block cursor-pointer border border-line px-3 py-1.5 font-mono text-xs uppercase tracking-wide text-ink hover:border-accentSoft">
+                Choose Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  disabled={avatarUploading}
+                  className="hidden"
+                />
+              </label>
+              {avatarFile && (
+                <button
+                  onClick={handleAvatarSave}
+                  disabled={avatarUploading}
+                  className="bg-accent px-3 py-1.5 font-mono text-xs uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
+                >
+                  {avatarUploading ? "Saving…" : "Save"}
+                </button>
+              )}
+            </div>
+            {avatarStatus && (
+              <p className="mt-1 text-xs text-accentSoft">{avatarStatus}</p>
+            )}
+            {avatarError && (
+              <p className="mt-1 text-xs text-accent">{avatarError}</p>
+            )}
+          </div>
+        </div>
 
         <div className="mt-4">
           <label className="block font-mono text-xs uppercase tracking-wide text-muted">
@@ -303,8 +397,8 @@ export default function SettingsPage() {
               )}
               {otpSent && (
                 <p className="mt-2 text-xs text-muted">
-                  Code sent — check your phone (or the server console if
-                  SMS_API_KEY isn't set).
+                  Code sent — check the server console for now (real SMS
+                  sending isn't connected yet).
                 </p>
               )}
             </>

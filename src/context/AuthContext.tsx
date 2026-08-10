@@ -15,6 +15,7 @@ type User = {
   address: string;
   phone: string;
   phoneVerified: boolean;
+  avatarUrl: string;
 };
 
 type PendingAction = (() => void) | null;
@@ -59,6 +60,7 @@ function mapUser(supabaseUser: NonNullable<
     address: supabaseUser.user_metadata?.address ?? "",
     phone: supabaseUser.user_metadata?.phone ?? "",
     phoneVerified: Boolean(supabaseUser.user_metadata?.phone_verified),
+    avatarUrl: supabaseUser.user_metadata?.avatar_url ?? "",
   };
 }
 

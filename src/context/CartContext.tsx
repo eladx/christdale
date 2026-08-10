@@ -1,25 +1,38 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import type { Product } from "@/lib/products";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/context/AuthContext";
+import { computeVariantKey } from "@/lib/variant";
 
-type CartItem = { productId: string; name: string; price: number; image: string; quantity: number };
+type CartItem = {
+  productId: string;
+  variantKey: string;
+  selectedOptions: Record<string, string> | null;
+  name: string;
+  price: number;
+  image: string;
+  quantity: number;
+};
 
 type CartContextValue = {
   items: CartItem[];
-  addItem: (product: Product, quantity?: number) => void;
-  removeItem: (productId: string) => void;
-  removeItems: (productIds: string[]) => void;
+  addItem: (
+    product: Product,
+    quantity?: number,
+    selectedOptions?: Record<string, string>
+  ) => void;
+  removeItem: (productId: string, variantKey?: string) => void;
+  updateQuantity: (productId: string, variantKey: string, quantity: number) => void;
   total: number;
   count: number;
-  selected: Set<string>;
-  toggleSelect: (productId: string) => void;
-  selectAll: () => void;
-  deselectAll: () => void;
-  selectedItems: CartItem[];
-  selectedTotal: number;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -32,91 +45,119 @@ async function authHeader() {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
-  // Tracks items the customer has unchecked for this checkout. Inverting
-  // the set (rather than tracking "selected") means newly added cart
-  // items default to selected without any extra sync-on-change logic.
-  const [deselected, setDeselected] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
-    if (!user) { setItems([]); return; }
+    if (!user) {
+      setItems([]);
+      return;
+    }
     const headers = await authHeader();
     const res = await fetch("/api/cart", { headers });
     const data = await res.json();
     setItems(data.items ?? []);
   }, [user]);
 
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const addItem = useCallback(async (product: Product, quantity: number = 1) => {
-    const headers = await authHeader();
-    await fetch("/api/cart", {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ productId: product.id, quantity }),
-    });
-    await refresh();
+  useEffect(() => {
+    refresh();
   }, [refresh]);
 
-  const removeItem = useCallback(async (productId: string) => {
-    const headers = await authHeader();
-    await fetch(`/api/cart/item?productId=${productId}`, { method: "DELETE", headers });
-    await refresh();
-  }, [refresh]);
+  // Optimistic: update local state immediately so the UI feels instant,
+  // then sync with the server in the background. On failure, re-fetch
+  // to correct any drift instead of leaving the UI wrong.
+  const addItem = useCallback(
+    (product: Product, quantity: number = 1, selectedOptions?: Record<string, string>) => {
+      const variantKey = computeVariantKey(selectedOptions);
 
-  const removeItems = useCallback(async (productIds: string[]) => {
-    if (productIds.length === 0) return;
-    const headers = await authHeader();
-    await fetch("/api/cart/items", {
-      method: "DELETE",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ productIds }),
-    });
-    await refresh();
-  }, [refresh]);
+      setItems((prev) => {
+        const existing = prev.find(
+          (i) => i.productId === product.id && i.variantKey === variantKey
+        );
+        if (existing) {
+          return prev.map((i) =>
+            i.productId === product.id && i.variantKey === variantKey
+              ? { ...i, quantity: i.quantity + quantity }
+              : i
+          );
+        }
+        return [
+          ...prev,
+          {
+            productId: product.id,
+            variantKey,
+            selectedOptions: selectedOptions ?? null,
+            name: product.name,
+            price: product.price,
+            image: product.image,
+            quantity,
+          },
+        ];
+      });
+
+      (async () => {
+        const headers = await authHeader();
+        const res = await fetch("/api/cart", {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ productId: product.id, quantity, selectedOptions }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setItems(data.items ?? []);
+        } else {
+          refresh();
+        }
+      })();
+    },
+    [refresh]
+  );
+
+  const removeItem = useCallback(
+    (productId: string, variantKey: string = "") => {
+      setItems((prev) =>
+        prev.filter((i) => !(i.productId === productId && i.variantKey === variantKey))
+      );
+      (async () => {
+        const headers = await authHeader();
+        const res = await fetch(
+          `/api/cart/item?productId=${productId}&variantKey=${encodeURIComponent(variantKey)}`,
+          { method: "DELETE", headers }
+        );
+        if (!res.ok) refresh();
+      })();
+    },
+    [refresh]
+  );
+
+  const updateQuantity = useCallback(
+    (productId: string, variantKey: string, quantity: number) => {
+      setItems((prev) =>
+        quantity <= 0
+          ? prev.filter((i) => !(i.productId === productId && i.variantKey === variantKey))
+          : prev.map((i) =>
+              i.productId === productId && i.variantKey === variantKey
+                ? { ...i, quantity }
+                : i
+            )
+      );
+      (async () => {
+        const headers = await authHeader();
+        const res = await fetch("/api/cart/item", {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ productId, variantKey, quantity }),
+        });
+        if (!res.ok) refresh();
+      })();
+    },
+    [refresh]
+  );
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
-  const toggleSelect = useCallback((productId: string) => {
-    setDeselected((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) next.delete(productId);
-      else next.add(productId);
-      return next;
-    });
-  }, []);
-
-  const selectAll = useCallback(() => setDeselected(new Set()), []);
-  const deselectAll = useCallback(
-    () => setDeselected(new Set(items.map((i) => i.productId))),
-    [items]
-  );
-
-  const selected = new Set(
-    items.filter((i) => !deselected.has(i.productId)).map((i) => i.productId)
-  );
-  const selectedItems = items.filter((i) => !deselected.has(i.productId));
-  const selectedTotal = selectedItems.reduce(
-    (sum, i) => sum + i.price * i.quantity,
-    0
-  );
-
   return (
     <CartContext.Provider
-      value={{
-        items,
-        addItem,
-        removeItem,
-        removeItems,
-        total,
-        count,
-        selected,
-        toggleSelect,
-        selectAll,
-        deselectAll,
-        selectedItems,
-        selectedTotal,
-      }}
+      value={{ items, addItem, removeItem, updateQuantity, total, count }}
     >
       {children}
     </CartContext.Provider>
