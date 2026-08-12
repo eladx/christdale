@@ -19,7 +19,7 @@ export default function Footer() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-8 font-mono text-sm uppercase tracking-wide text-muted">
+          <div className="grid grid-cols-2 gap-8 font-mono text-sm uppercase tracking-wide text-muted sm:grid-cols-3">
             <div className="flex flex-col gap-2">
               <span className="text-ink">Shop</span>
               <a href="/products" className="hover:text-accent">
@@ -36,6 +36,15 @@ export default function Footer() {
               </a>
               <a href="/contact" className="hover:text-accent">
                 Get In Touch
+              </a>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-ink">Legal</span>
+              <a href="/privacy" className="hover:text-accent">
+                Privacy Policy
+              </a>
+              <a href="/terms" className="hover:text-accent">
+                Terms of Service
               </a>
             </div>
           </div>
