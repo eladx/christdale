@@ -27,6 +27,11 @@ export async function POST(request: Request) {
   }
 
   const eventType = event?.data?.attributes?.type;
+  console.log("[PayMongo webhook] received event type:", eventType);
+  console.log(
+    "[PayMongo webhook] nested data:",
+    JSON.stringify(event?.data?.attributes?.data, null, 2)
+  );
 
   // Always acknowledge with 200 once the signature is valid, even for
   // event types we don't act on — PayMongo disables webhooks that
@@ -34,12 +39,21 @@ export async function POST(request: Request) {
   try {
     if (eventType === "checkout_session.payment.paid") {
       const checkoutSessionId = event.data.attributes.data?.id;
+      console.log(
+        "[PayMongo webhook] looking for order with paymentRef:",
+        checkoutSessionId
+      );
       if (checkoutSessionId) {
         const order = await prisma.order.findFirst({
           where: { paymentRef: checkoutSessionId },
         });
+        console.log(
+          "[PayMongo webhook] matched order:",
+          order?.id ?? "NONE FOUND"
+        );
         if (order) {
           await fulfillOrder(order.id);
+          console.log("[PayMongo webhook] fulfillOrder completed for", order.id);
         }
       }
     }
