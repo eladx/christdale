@@ -4,9 +4,10 @@ import { getCoaches } from "@/lib/coaches";
 import ProductCard from "@/components/ProductCard";
 import CoachCard from "@/components/CoachCard";
 
-// Same reason as /products: without this the featured products on the
-// homepage freeze at whatever they were on the last Vercel deploy.
-export const revalidate = 60;
+// Without this, Vercel statically caches this page at build time —
+// new products/coaches added via admin wouldn't show on the live site
+// until the next deploy, even though they're already in the database.
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const [products, coaches] = await Promise.all([
@@ -20,34 +21,48 @@ export default async function Home() {
     <>
       {/* Hero: the thesis is "the bar doesn't care about your excuses" —
           equipment + coaching framed as the two things standing between
-          you and the next rep. */}
-      <section className="wrap pb-20 pt-16 md:pt-24">
-        <p className="font-mono text-xs uppercase tracking-widest2 text-accent">
-          Bodyweight Training Co.
-        </p>
-        <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.05] text-ink md:text-7xl 2xl:text-8xl">
-          THE BAR DOESN&apos;T CARE
-          <br />
-          ABOUT YOUR{" "}
-          <span className="chalk-mark text-accent">EXCUSES.</span>
-        </h1>
-        <p className="mt-6 max-w-lg text-lg text-muted">
-          Rings, bars, and parallettes built to hold up under real training —
-          plus coaches who&apos;ll tell you the truth about your form.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-4">
-          <Link
-            href="/products"
-            className="bg-accent px-6 py-3 font-mono text-sm uppercase tracking-wide text-bg transition-opacity hover:opacity-90"
-          >
-            Shop Equipment
-          </Link>
-          <Link
-            href="/coaches"
-            className="border border-line px-6 py-3 font-mono text-sm uppercase tracking-wide text-ink transition-colors hover:border-accentSoft hover:text-accentSoft"
-          >
-            Find a Coach
-          </Link>
+          you and the next rep. Full-bleed video background. */}
+      <section className="relative flex items-center overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+        >
+          <source src="/hero-video.mp4" type="video/mp4" />
+        </video>
+        {/* Dark overlay so text stays readable over any footage */}
+        <div className="absolute inset-0 bg-bg/70" />
+
+        <div className="wrap relative z-10 py-20">
+          <p className="font-mono text-xs uppercase tracking-widest2 text-accent">
+            Bodyweight Training Co.
+          </p>
+          <h1 className="mt-4 max-w-4xl font-display text-5xl leading-[1.05] text-ink md:text-7xl 2xl:text-8xl">
+            THE BAR DOESN&apos;T CARE
+            <br />
+            ABOUT YOUR{" "}
+            <span className="chalk-mark text-accent">EXCUSES.</span>
+          </h1>
+          <p className="mt-6 max-w-lg text-lg text-muted">
+            Rings, bars, and parallettes built to hold up under real training —
+            plus coaches who&apos;ll tell you the truth about your form.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Link
+              href="/products"
+              className="bg-accent px-6 py-3 font-mono text-sm uppercase tracking-wide text-bg transition-opacity hover:opacity-90"
+            >
+              Shop Equipment
+            </Link>
+            <Link
+              href="/coaches"
+              className="border border-line px-6 py-3 font-mono text-sm uppercase tracking-wide text-ink transition-colors hover:border-accentSoft hover:text-accentSoft"
+            >
+              Find a Coach
+            </Link>
+          </div>
         </div>
       </section>
 

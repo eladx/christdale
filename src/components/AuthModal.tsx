@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import PasswordInput from "@/components/PasswordInput";
+import PasswordRequirements, { isPasswordValid } from "@/components/PasswordRequirements";
 
 export default function AuthModal() {
   const { isModalOpen, modalMode, closeAuthModal, login, signup } = useAuth();
@@ -53,7 +54,11 @@ export default function AuthModal() {
       setError("Fill in all fields.");
       return;
     }
-    if (password.length < 6) {
+    if (mode === "signup" && !isPasswordValid(password)) {
+      setError("Password doesn't meet all requirements.");
+      return;
+    }
+    if (mode === "login" && password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
@@ -77,6 +82,7 @@ export default function AuthModal() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+      setPassword("");
     } finally {
       setSubmitting(false);
     }
@@ -186,6 +192,9 @@ export default function AuthModal() {
                 <div className="mt-2">
                   <PasswordInput value={password} onChange={setPassword} />
                 </div>
+                {mode === "signup" && (
+                  <PasswordRequirements password={password} />
+                )}
               </div>
 
               {error && <p className="text-sm text-accent">{error}</p>}

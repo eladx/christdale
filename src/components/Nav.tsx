@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import ConfirmDialog from "@/components/ConfirmDialog";
 
 const links = [
   { href: "/", label: "Home" },
@@ -36,13 +37,12 @@ function CartIcon() {
 export default function Nav() {
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { user, isAdmin, openAuthModal, logout } = useAuth();
   const { count } = useCart();
 
   function handleLogout() {
-    if (confirm("Log out of your account?")) {
-      logout();
-    }
+    setShowLogoutConfirm(true);
   }
 
   return (
@@ -277,6 +277,18 @@ export default function Nav() {
             </>
           )}
         </nav>
+      )}
+
+      {showLogoutConfirm && (
+        <ConfirmDialog
+          message="Are you sure you want to log out?"
+          confirmLabel="Log Out"
+          onConfirm={() => {
+            setShowLogoutConfirm(false);
+            logout();
+          }}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
       )}
     </header>
   );

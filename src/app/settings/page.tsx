@@ -6,6 +6,8 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase/client";
 import { uploadAvatar } from "@/lib/supabase/storage";
 import PasswordInput from "@/components/PasswordInput";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import PasswordRequirements, { isPasswordValid } from "@/components/PasswordRequirements";
 
 export default function SettingsPage() {
   const { user, openAuthModal, logout } = useAuth();
@@ -34,6 +36,7 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordStatus, setPasswordStatus] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
   if (!user) {
@@ -164,8 +167,8 @@ export default function SettingsPage() {
     setPasswordError("");
     setPasswordStatus("");
 
-    if (newPassword.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
+    if (!isPasswordValid(newPassword)) {
+      setPasswordError("Password doesn't meet all requirements.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -189,9 +192,7 @@ export default function SettingsPage() {
   }
 
   function handleLogout() {
-    if (confirm("Log out of your account?")) {
-      logout();
-    }
+    setShowLogoutConfirm(true);
   }
 
   return (
@@ -418,6 +419,7 @@ export default function SettingsPage() {
             <div className="mt-2">
               <PasswordInput value={newPassword} onChange={setNewPassword} />
             </div>
+            <PasswordRequirements password={newPassword} />
           </div>
           <div>
             <label className="block font-mono text-xs uppercase tracking-wide text-muted">
@@ -460,6 +462,18 @@ export default function SettingsPage() {
           Log Out
         </button>
       </div>
+
+      {showLogoutConfirm && (
+        <ConfirmDialog
+          message="Are you sure you want to log out?"
+          confirmLabel="Log Out"
+          onConfirm={() => {
+            setShowLogoutConfirm(false);
+            logout();
+          }}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
+      )}
     </div>
   );
 }
