@@ -276,7 +276,7 @@ export default function CartPage() {
               </p>
             )}
 
-            {(!user.address || !user.phoneVerified) && (
+            {(!user.address || !user.phone) && (
               <p className="mt-2 text-xs text-muted">
                 <Link href="/settings" className="text-accent hover:underline">
                   Save your address and verify your phone in Settings

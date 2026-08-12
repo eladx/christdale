@@ -26,11 +26,8 @@ export default function SettingsPage() {
   const [savingAddress, setSavingAddress] = useState(false);
 
   const [phone, setPhone] = useState(user?.phone ?? "");
-  const [editingPhone, setEditingPhone] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
-  const [phoneError, setPhoneError] = useState("");
-  const [phoneBusy, setPhoneBusy] = useState(false);
+  const [phoneStatus, setPhoneStatus] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -116,50 +113,15 @@ export default function SettingsPage() {
     setAddressStatus(error ? "Something went wrong." : "Saved.");
   }
 
-  async function handleSendCode() {
-    setPhoneError("");
-    if (!phone || phone.length < 10) {
-      setPhoneError("Enter a valid phone number.");
-      return;
-    }
-    setPhoneBusy(true);
-    const headers = await authHeader();
-    const res = await fetch("/api/sms/send-otp", {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
+  async function handleSavePhone(e: React.FormEvent) {
+    e.preventDefault();
+    setPhoneStatus("");
+    setSavingPhone(true);
+    const { error } = await supabase.auth.updateUser({
+      data: { phone },
     });
-    setPhoneBusy(false);
-    if (!res.ok) {
-      setPhoneError("Couldn't send code. Try again.");
-      return;
-    }
-    setOtpSent(true);
-  }
-
-  async function handleVerifyCode() {
-    setPhoneError("");
-    setPhoneBusy(true);
-    const headers = await authHeader();
-    const res = await fetch("/api/sms/verify-otp", {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({ code: otpCode }),
-    });
-    const result = await res.json();
-    setPhoneBusy(false);
-
-    if (!res.ok) {
-      setPhoneError(result.error ?? "Invalid code.");
-      return;
-    }
-
-    await supabase.auth.updateUser({
-      data: { phone: result.phone, phone_verified: true },
-    });
-    setOtpSent(false);
-    setEditingPhone(false);
-    setOtpCode("");
+    setSavingPhone(false);
+    setPhoneStatus(error ? "Something went wrong." : "Saved.");
   }
 
   async function handleChangePassword(e: React.FormEvent) {
@@ -330,81 +292,30 @@ export default function SettingsPage() {
           </div>
         </form>
 
-        <div className="mt-6 border-t border-line pt-6">
+        <form onSubmit={handleSavePhone} className="mt-6 border-t border-line pt-6">
           <label className="block font-mono text-xs uppercase tracking-wide text-muted">
             Phone Number
           </label>
-
-          {user.phoneVerified && !editingPhone ? (
-            <div className="mt-2 flex items-center gap-3">
-              <p className="text-sm text-ink">{user.phone}</p>
-              <span className="font-mono text-xs uppercase text-accentSoft">
-                Verified ✓
-              </span>
-              <button
-                onClick={() => {
-                  setEditingPhone(true);
-                  setOtpSent(false);
-                  setPhone(user.phone);
-                }}
-                className="font-mono text-xs uppercase text-muted hover:text-accent"
-              >
-                Change
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="mt-2 flex gap-2">
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="09XXXXXXXXX"
-                  disabled={otpSent}
-                  className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none disabled:opacity-50"
-                />
-                {!otpSent && (
-                  <button
-                    onClick={handleSendCode}
-                    disabled={phoneBusy}
-                    className="border border-line px-4 font-mono text-xs uppercase tracking-wide text-ink hover:border-accentSoft disabled:opacity-50"
-                  >
-                    {phoneBusy ? "Sending…" : "Send Code"}
-                  </button>
-                )}
-              </div>
-
-              {otpSent && (
-                <div className="mt-3 flex gap-2">
-                  <input
-                    type="text"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    placeholder="6-digit code"
-                    className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-                  />
-                  <button
-                    onClick={handleVerifyCode}
-                    disabled={phoneBusy}
-                    className="bg-accent px-4 font-mono text-xs uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
-                  >
-                    Verify
-                  </button>
-                </div>
-              )}
-
-              {phoneError && (
-                <p className="mt-2 text-xs text-accent">{phoneError}</p>
-              )}
-              {otpSent && (
-                <p className="mt-2 text-xs text-muted">
-                  Code sent — check the server console for now (real SMS
-                  sending isn't connected yet).
-                </p>
-              )}
-            </>
-          )}
-        </div>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="09XXXXXXXXX"
+            className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+          />
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={savingPhone}
+              className="bg-accent px-5 py-2 font-mono text-xs uppercase tracking-wide text-bg hover:opacity-90 disabled:opacity-50"
+            >
+              {savingPhone ? "Saving…" : "Save Phone"}
+            </button>
+            {phoneStatus && (
+              <span className="text-xs text-accentSoft">{phoneStatus}</span>
+            )}
+          </div>
+        </form>
       </div>
 
       {/* Password */}
