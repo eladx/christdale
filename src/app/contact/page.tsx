@@ -43,7 +43,7 @@ export default function ContactPage() {
             <input
               required
               type="text"
-              className="mt-2 w-full border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              className="mt-2 w-full border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
             />
           </div>
           <div>
@@ -53,7 +53,7 @@ export default function ContactPage() {
             <input
               required
               type="email"
-              className="mt-2 w-full border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              className="mt-2 w-full border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
             />
           </div>
           <div>
@@ -63,7 +63,7 @@ export default function ContactPage() {
             <textarea
               required
               rows={5}
-              className="mt-2 w-full border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              className="mt-2 w-full border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
             />
           </div>
           <button

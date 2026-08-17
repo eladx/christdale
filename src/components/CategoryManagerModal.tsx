@@ -76,7 +76,7 @@ export default function CategoryManagerModal({
 
   return (
     <div
-      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 px-4 py-8"
+      className="fixed inset-0 z-150 flex items-center justify-center bg-black/70 px-4 py-8"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -100,7 +100,7 @@ export default function CategoryManagerModal({
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="New category name"
-            className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+            className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
           />
           <button
             type="submit"

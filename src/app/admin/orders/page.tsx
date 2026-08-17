@@ -104,7 +104,7 @@ export default function AdminOrdersPage() {
                   value={order.status}
                   disabled={savingId === order.id}
                   onChange={(e) => updateStatus(order.id, e.target.value)}
-                  className="border border-line bg-surface2 px-3 py-2 font-mono text-xs uppercase tracking-wide text-ink focus:border-accent focus:outline-none"
+                  className="border border-line bg-surface2 px-3 py-2 font-mono text-xs uppercase tracking-wide text-ink focus:border-accent focus:outline-hidden"
                 >
                   {STATUSES.map((s) => (
                     <option key={s} value={s}>

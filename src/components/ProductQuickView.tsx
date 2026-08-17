@@ -81,7 +81,7 @@ export default function ProductQuickView() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4 py-8"
+      className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 px-4 py-8"
       onClick={closeQuickView}
       role="dialog"
       aria-modal="true"
@@ -226,7 +226,7 @@ export default function ProductQuickView() {
                   value={voucher}
                   onChange={(e) => setVoucher(e.target.value)}
                   placeholder="Enter code"
-                  className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-none"
+                  className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-hidden"
                 />
                 <button
                   onClick={handleApplyVoucher}

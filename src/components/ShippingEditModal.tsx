@@ -31,7 +31,7 @@ export default function ShippingEditModal({
 
   return (
     <div
-      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 px-4"
+      className="fixed inset-0 z-150 flex items-center justify-center bg-black/70 px-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -55,7 +55,7 @@ export default function ShippingEditModal({
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
             />
           </div>
           <div>
@@ -66,7 +66,7 @@ export default function ShippingEditModal({
               value={addr}
               onChange={(e) => setAddr(e.target.value)}
               rows={2}
-              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
             />
           </div>
           <div>
@@ -77,7 +77,7 @@ export default function ShippingEditModal({
               type="tel"
               value={tel}
               onChange={(e) => setTel(e.target.value)}
-              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
             />
           </div>
 

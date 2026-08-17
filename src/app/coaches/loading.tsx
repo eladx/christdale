@@ -11,7 +11,7 @@ export default function Loading() {
       <div className="mt-12 grid gap-6 md:grid-cols-2">
         {Array.from({ length: 2 }).map((_, i) => (
           <div key={i} className="border border-line bg-surface p-6">
-            <Skeleton className="aspect-[4/3] w-full" />
+            <Skeleton className="aspect-4/3 w-full" />
             <Skeleton className="mt-4 h-6 w-1/2" />
             <Skeleton className="mt-2 h-3 w-2/3" />
             <Skeleton className="mt-3 h-3 w-full" />

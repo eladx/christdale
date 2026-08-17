@@ -37,7 +37,7 @@ export default function ProductsFilter({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search products…"
-          className="mt-2 w-full border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-none"
+          className="mt-2 w-full border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-accent focus:outline-hidden"
         />
 
         <label className="mt-6 block font-mono text-xs uppercase tracking-wide text-muted">

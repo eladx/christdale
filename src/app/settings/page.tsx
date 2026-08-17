@@ -244,7 +244,7 @@ export default function SettingsPage() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+            className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
           />
           <div className="mt-3 flex items-center gap-3">
             <button
@@ -276,7 +276,7 @@ export default function SettingsPage() {
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             rows={2}
-            className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+            className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
           />
           <div className="mt-3 flex items-center gap-3">
             <button
@@ -301,7 +301,7 @@ export default function SettingsPage() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="09XXXXXXXXX"
-            className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+            className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
           />
           <div className="mt-3 flex items-center gap-3">
             <button

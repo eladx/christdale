@@ -90,7 +90,7 @@ export default function AuthModal() {
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 px-4"
+      className="fixed inset-0 z-200 flex items-center justify-center bg-black/70 px-4"
       onClick={handleClose}
       role="dialog"
       aria-modal="true"
@@ -170,7 +170,7 @@ export default function AuthModal() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                    className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
                   />
                 </div>
               )}
@@ -182,7 +182,7 @@ export default function AuthModal() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                  className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
                 />
               </div>
               <div>

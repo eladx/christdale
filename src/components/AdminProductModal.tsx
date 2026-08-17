@@ -158,7 +158,7 @@ export default function AdminProductModal({
 
   return (
     <div
-      className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 px-4 py-8"
+      className="fixed inset-0 z-150 flex items-center justify-center bg-black/70 px-4 py-8"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -187,7 +187,7 @@ export default function AdminProductModal({
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
             />
           </div>
 
@@ -199,7 +199,7 @@ export default function AdminProductModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
             />
           </div>
 
@@ -212,7 +212,7 @@ export default function AdminProductModal({
                 type="number"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
               />
             </div>
             <div>
@@ -223,7 +223,7 @@ export default function AdminProductModal({
                 type="number"
                 value={stockCount}
                 onChange={(e) => setStockCount(e.target.value)}
-                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
               />
             </div>
           </div>
@@ -235,7 +235,7 @@ export default function AdminProductModal({
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -275,7 +275,7 @@ export default function AdminProductModal({
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="https://..."
-                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                className="mt-2 w-full border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
               />
             ) : (
               <input
@@ -327,7 +327,7 @@ export default function AdminProductModal({
                     )
                   }
                   placeholder="Group name (e.g. Size)"
-                  className="w-32 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                  className="w-32 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
                 />
                 <input
                   value={v.optionsText}
@@ -339,7 +339,7 @@ export default function AdminProductModal({
                     )
                   }
                   placeholder="Options, comma-separated"
-                  className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                  className="flex-1 border border-line bg-surface2 px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
                 />
                 <button
                   onClick={() => setVariations((prev) => prev.filter((_, gi) => gi !== i))}

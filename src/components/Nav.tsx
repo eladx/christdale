@@ -46,7 +46,7 @@ export default function Nav() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-line bg-bg/90 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-line bg-bg/90 backdrop-blur-sm">
       <div className="wrap flex items-center justify-between py-4 md:grid md:grid-cols-[auto_1fr_auto] md:gap-4">
         <Link
           href="/"
@@ -192,7 +192,7 @@ export default function Nav() {
           />
           <span
             className={`h-[2px] w-6 bg-current transition-transform duration-200 ${
-              open ? "-translate-y-[7px] -rotate-45" : ""
+              open ? "translate-y-[-7px] -rotate-45" : ""
             }`}
           />
         </button>

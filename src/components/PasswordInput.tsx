@@ -38,7 +38,7 @@ export default function PasswordInput({
         type={visible ? "text" : "password"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full border border-line bg-surface2 px-3 py-2 pr-10 text-sm text-ink focus:border-accent focus:outline-none ${className}`}
+        className={`w-full border border-line bg-surface2 px-3 py-2 pr-10 text-sm text-ink focus:border-accent focus:outline-hidden ${className}`}
       />
       <button
         type="button"
